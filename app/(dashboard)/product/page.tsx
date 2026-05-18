@@ -154,7 +154,7 @@ export default function ProductPage() {
       {!apiKey && (
         <div className="mb-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
           <p className="text-sm font-medium">🔑 Magnific API Key belum diset</p>
-          <p className="text-xs text-muted-foreground mt-1">Masukkan API key di tombol &quot;API Key&quot; di header, atau dapatkan gratis di <a href="https://www.magnific.com/api" target="_blank" rel="noopener noreferrer" className="text-primary underline">magnific.com/api</a></p>
+          <p className="text-xs text-muted-foreground mt-1">Klik tombol &quot;API Key&quot; di kanan atas untuk memasukkan key. Dapatkan API key gratis di <a href="https://www.magnific.com/api" target="_blank" rel="noopener noreferrer" className="text-primary underline">magnific.com/api</a></p>
         </div>
       )}
 
