@@ -7,6 +7,7 @@ import { useRateLimitStore } from "@/stores/rate-limit-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { submitTask } from "@/lib/api-client";
 import { pollTask } from "@/lib/task-poller";
+import { leonardoGenerate, leonardoPoll, getLeonardoKey } from "@/lib/leonardo-client";
 import { PromptInput } from "@/components/shared/prompt-input";
 import { DownloadButton } from "@/components/shared/download-button";
 import { TaskStatusBadge } from "@/components/shared/task-status";
@@ -51,11 +52,19 @@ const THUMBNAIL_STYLES = [
   },
 ];
 
+const LEONARDO_IMAGE_MODELS = [
+  { id: "flux-2-pro", name: "FLUX.2 Pro", description: "High quality" },
+  { id: "phoenix-1.0", name: "Phoenix", description: "Fast & versatile" },
+  { id: "ideogram-3.0", name: "Ideogram 3.0", description: "Great for text in images" },
+];
+
 export default function ThumbnailPage() {
   const { apiKey } = useAuthStore();
   const { decrement, isExhausted, resetIfNewDay } = useRateLimitStore();
   const { addItem } = useHistoryStore();
 
+  const [provider, setProvider] = useState<"magnific" | "leonardo">("magnific");
+  const [leonardoModel, setLeonardoModel] = useState(LEONARDO_IMAGE_MODELS[0].id);
   const [title, setTitle] = useState("");
   const [selectedStyle, setSelectedStyle] = useState(THUMBNAIL_STYLES[0].id);
   const [results, setResults] = useState<Array<{ id: string; url: string; style: string }>>([]);
@@ -68,7 +77,7 @@ export default function ThumbnailPage() {
 
   useEffect(() => { resetIfNewDay(); }, [resetIfNewDay]);
 
-  const generateOne = async (promptTemplate: (t: string) => string): Promise<string | null> => {
+  const generateOneMagnific = async (promptTemplate: (t: string) => string): Promise<string | null> => {
     const prompt = promptTemplate(title.trim());
 
     const submitRes = await submitTask("/v1/ai/mystic", { prompt }, apiKey!);
@@ -87,28 +96,72 @@ export default function ThumbnailPage() {
     });
   };
 
+  const generateOneLeonardo = async (promptTemplate: (t: string) => string): Promise<string | null> => {
+    const leoKey = getLeonardoKey();
+    if (!leoKey) return null;
+
+    const prompt = promptTemplate(title.trim());
+
+    const body = {
+      model: leonardoModel,
+      public: false,
+      parameters: {
+        prompt,
+        width: 1920,
+        height: 1080,
+        mode: "RESOLUTION_1080",
+      },
+    };
+
+    const submitResult = await leonardoGenerate(leoKey, body);
+    if (!submitResult.ok) return null;
+
+    const pollResult = await leonardoPoll(leoKey, submitResult.generationId!, {
+      interval: 4000,
+      timeout: 120000,
+    });
+
+    if (pollResult.status === "COMPLETE" && pollResult.imageUrl) {
+      return pollResult.imageUrl;
+    }
+    return null;
+  };
+
   const handleGenerate = useCallback(async () => {
-    if (!apiKey || !title.trim()) return;
-    if (isExhausted("image-generation-mystic")) { setError("Daily quota exhausted."); return; }
+    if (!title.trim()) return;
+
+    if (provider === "magnific") {
+      if (!apiKey) return;
+      if (isExhausted("image-generation-mystic")) { setError("Daily quota exhausted."); return; }
+    } else {
+      const leoKey = getLeonardoKey();
+      if (!leoKey) { setError("Leonardo API key belum diset. Tambahkan di Settings."); return; }
+    }
 
     setIsGenerating(true); setStatus("PROCESSING"); setError(null); setResults([]);
 
     const newResults: Array<{ id: string; url: string; style: string }> = [];
 
-    // Generate multiple variations
     for (let i = 0; i < generateCount; i++) {
-      const url = await generateOne(style.promptTemplate);
+      const url = provider === "magnific"
+        ? await generateOneMagnific(style.promptTemplate)
+        : await generateOneLeonardo(style.promptTemplate);
+
       if (url) {
         newResults.push({ id: crypto.randomUUID(), url, style: style.name });
         setResults([...newResults]);
-        addItem({ id: crypto.randomUUID(), taskType: "image-generation", resultUrl: url, resultType: "image", params: { title, style: selectedStyle }, createdAt: new Date().toISOString() });
+        addItem({ id: crypto.randomUUID(), taskType: "image-generation", resultUrl: url, resultType: "image", params: { title, style: selectedStyle, provider }, createdAt: new Date().toISOString() });
       }
     }
 
     if (newResults.length === 0) setError("Semua generasi gagal. Coba lagi.");
     setStatus(newResults.length > 0 ? "COMPLETED" : "FAILED");
     setIsGenerating(false);
-  }, [apiKey, title, style, generateCount, selectedStyle, isExhausted, decrement, addItem]);
+  }, [apiKey, title, style, generateCount, selectedStyle, provider, leonardoModel, isExhausted, decrement, addItem]);
+
+  const canGenerate = provider === "magnific"
+    ? !!title.trim() && !isGenerating && !!apiKey && !isExhausted("image-generation-mystic")
+    : !!title.trim() && !isGenerating && !!getLeonardoKey();
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -126,7 +179,7 @@ export default function ThumbnailPage() {
         💡 <strong>Apa ini?</strong> Masukkan judul video, pilih style, dan AI akan generate beberapa variasi thumbnail yang eye-catching. Cocok buat YouTuber, podcaster, atau content creator yang butuh thumbnail cepat tanpa desain manual.
       </div>
 
-      {!apiKey && (
+      {!apiKey && provider === "magnific" && (
         <div className="mb-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
           <p className="text-sm font-medium">🔑 API Key belum diset</p>
           <p className="text-xs text-muted-foreground mt-1">Klik tombol &quot;API Key&quot; di kanan atas.</p>
@@ -135,6 +188,37 @@ export default function ThumbnailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
+          {/* Provider Selector */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Provider</label>
+            <div className="flex gap-2">
+              <button onClick={() => setProvider("magnific")}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${provider === "magnific" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                Magnific (Mystic)
+              </button>
+              <button onClick={() => setProvider("leonardo")}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${provider === "leonardo" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                Leonardo AI
+              </button>
+            </div>
+          </div>
+
+          {/* Leonardo Model Selector */}
+          {provider === "leonardo" && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Model</label>
+              <select value={leonardoModel} onChange={(e) => setLeonardoModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                {LEONARDO_IMAGE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                💡 Ideogram 3.0 recommended untuk thumbnail dengan teks — hasilnya paling rapi.
+              </p>
+            </div>
+          )}
+
           <PromptInput value={title} onChange={setTitle} maxLength={100} label="Judul Video / Teks Thumbnail" placeholder="Misal: 5 Tips Jadi Content Creator Sukses" rows={2} />
 
           <div>
@@ -164,7 +248,7 @@ export default function ThumbnailPage() {
           </div>
 
           <button onClick={handleGenerate}
-            disabled={!title.trim() || isGenerating || !apiKey || isExhausted("image-generation-mystic")}
+            disabled={!canGenerate}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-red-600 to-pink-600 text-white font-medium text-sm hover:from-red-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" />Generating Thumbnails...</> : <><MonitorPlay className="w-4 h-4" />Generate {generateCount} Thumbnail</>}
           </button>

@@ -8,6 +8,7 @@ import { useRateLimitStore } from "@/stores/rate-limit-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { submitTask } from "@/lib/api-client";
 import { pollTask } from "@/lib/task-poller";
+import { leonardoGenerate, leonardoPoll, getLeonardoKey } from "@/lib/leonardo-client";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { DownloadButton } from "@/components/shared/download-button";
 import { TaskStatusBadge } from "@/components/shared/task-status";
@@ -64,12 +65,20 @@ const LOGO_STYLES = [
   },
 ];
 
+const LEONARDO_VIDEO_MODELS = [
+  { id: "kling-3.0", name: "Kling 3.0", description: "Best quality" },
+  { id: "kling-2.6", name: "Kling 2.6", description: "Fast & reliable" },
+  { id: "veo-3.0", name: "Veo 3.0", description: "Google" },
+];
+
 export default function LogoAnimatePage() {
   const { apiKey } = useAuthStore();
   const { addTask, updateTask } = useTaskStore();
   const { decrement, isExhausted, resetIfNewDay } = useRateLimitStore();
   const { addItem } = useHistoryStore();
 
+  const [provider, setProvider] = useState<"magnific" | "leonardo">("magnific");
+  const [leonardoModel, setLeonardoModel] = useState(LEONARDO_VIDEO_MODELS[0].id);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState(LOGO_STYLES[0].id);
@@ -100,7 +109,51 @@ export default function LogoAnimatePage() {
     return (await response.json()).url;
   };
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerateLeonardo = useCallback(async () => {
+    const leoKey = getLeonardoKey();
+    if (!leoKey) { setError("Leonardo API key belum diset. Tambahkan di Settings."); return; }
+
+    setIsSubmitting(true); setStatus("PENDING"); setResultUrl(null); setError(null);
+
+    try {
+      const body = {
+        model: leonardoModel,
+        public: false,
+        parameters: {
+          prompt: style.prompt,
+          duration: 5,
+          width: 1920,
+          height: 1080,
+          mode: "RESOLUTION_1080",
+        },
+      };
+
+      const submitResult = await leonardoGenerate(leoKey, body);
+      if (!submitResult.ok) {
+        setError(submitResult.error || "Failed to submit to Leonardo");
+        setStatus("FAILED"); setIsSubmitting(false); return;
+      }
+
+      setStatus("PROCESSING"); setIsSubmitting(false);
+
+      const pollResult = await leonardoPoll(leoKey, submitResult.generationId!, {
+        interval: 5000,
+        timeout: 300000,
+        onStatusChange: (s) => setStatus(s === "COMPLETE" ? "COMPLETED" : s),
+      });
+
+      if (pollResult.status === "COMPLETE" && pollResult.videoUrl) {
+        setResultUrl(pollResult.videoUrl); setStatus("COMPLETED");
+        addItem({ id: crypto.randomUUID(), taskType: "video-generation", resultUrl: pollResult.videoUrl, resultType: "video", params: { style: selectedStyle, provider: "leonardo", model: leonardoModel }, createdAt: new Date().toISOString() });
+      } else {
+        setError(pollResult.error || "Generation failed"); setStatus("FAILED");
+      }
+    } catch {
+      setError("Failed. Check connection."); setStatus("FAILED"); setIsSubmitting(false);
+    }
+  }, [leonardoModel, style, selectedStyle, addItem]);
+
+  const handleGenerateMagnific = useCallback(async () => {
     if (!apiKey || !selectedImage) return;
     if (isExhausted("video-kling-pro")) { setError("Daily quota exhausted."); return; }
 
@@ -143,6 +196,15 @@ export default function LogoAnimatePage() {
     }
   }, [apiKey, selectedImage, style, selectedStyle, isExhausted, decrement, addTask, updateTask, addItem]);
 
+  const handleGenerate = useCallback(() => {
+    if (provider === "leonardo") return handleGenerateLeonardo();
+    return handleGenerateMagnific();
+  }, [provider, handleGenerateLeonardo, handleGenerateMagnific]);
+
+  const canGenerate = provider === "magnific"
+    ? !!selectedImage && !isSubmitting && status !== "PROCESSING" && !!apiKey
+    : !isSubmitting && status !== "PROCESSING" && !!getLeonardoKey();
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-4">
@@ -159,7 +221,7 @@ export default function LogoAnimatePage() {
         💡 <strong>Apa ini?</strong> Upload logo kamu, pilih style animasi (glitch, liquid, particle, dll), dan AI akan bikin video animasi logo yang bisa dipakai sebagai intro YouTube, brand reveal, atau opening video. Biasanya butuh After Effects — sekarang cukup 1 klik.
       </div>
 
-      {!apiKey && (
+      {!apiKey && provider === "magnific" && (
         <div className="mb-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
           <p className="text-sm font-medium">🔑 API Key belum diset</p>
           <p className="text-xs text-muted-foreground mt-1">Klik tombol &quot;API Key&quot; di kanan atas.</p>
@@ -168,12 +230,49 @@ export default function LogoAnimatePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
+          {/* Provider Selector */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Provider</label>
+            <div className="flex gap-2">
+              <button onClick={() => setProvider("magnific")}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${provider === "magnific" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                Magnific (with image)
+              </button>
+              <button onClick={() => setProvider("leonardo")}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${provider === "leonardo" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                Leonardo (text-to-video)
+              </button>
+            </div>
+          </div>
+
+          {/* Leonardo Model Selector */}
+          {provider === "leonardo" && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Model</label>
+              <select value={leonardoModel} onChange={(e) => setLeonardoModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                {LEONARDO_VIDEO_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                ⚠️ Leonardo mode generates logo animation from text description. Upload logo as visual reference only.
+              </p>
+            </div>
+          )}
+
+          {/* Image Upload */}
           <div>
             <label className="text-sm font-medium mb-1.5 block">Upload Logo</label>
             <ImageUpload onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} selectedImage={selectedImage} previewUrl={previewUrl} />
-            <p className="text-[10px] text-muted-foreground mt-1">Tips: Logo dengan background transparan/solid gelap hasilnya lebih bagus</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {provider === "magnific"
+                ? "Tips: Logo dengan background transparan/solid gelap hasilnya lebih bagus"
+                : "Logo dipakai sebagai referensi visual saja (text-to-video mode)"}
+            </p>
           </div>
 
+          {/* Style Selector */}
           <div>
             <label className="text-sm font-medium mb-2 block">Animation Style</label>
             <div className="grid grid-cols-2 gap-2">
@@ -188,7 +287,7 @@ export default function LogoAnimatePage() {
           </div>
 
           <button onClick={handleGenerate}
-            disabled={!selectedImage || isSubmitting || status === "PROCESSING" || !apiKey}
+            disabled={!canGenerate}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-medium text-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {isSubmitting || status === "PROCESSING" ? <><Loader2 className="w-4 h-4 animate-spin" />Animating Logo...</> : <><Clapperboard className="w-4 h-4" />Animate Logo</>}
           </button>

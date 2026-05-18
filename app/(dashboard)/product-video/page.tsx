@@ -8,6 +8,7 @@ import { useRateLimitStore } from "@/stores/rate-limit-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { submitTask, apiRequest } from "@/lib/api-client";
 import { pollTask } from "@/lib/task-poller";
+import { leonardoGenerate, leonardoPoll, getLeonardoKey } from "@/lib/leonardo-client";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { DownloadButton } from "@/components/shared/download-button";
 import { TaskStatusBadge } from "@/components/shared/task-status";
@@ -65,12 +66,20 @@ const PRODUCT_STYLES = [
   },
 ];
 
+const LEONARDO_VIDEO_MODELS = [
+  { id: "kling-3.0", name: "Kling 3.0", description: "Best quality" },
+  { id: "kling-2.6", name: "Kling 2.6", description: "Fast & reliable" },
+  { id: "veo-3.0", name: "Veo 3.0", description: "Google" },
+];
+
 export default function ProductVideoPage() {
   const { apiKey } = useAuthStore();
   const { addTask, updateTask } = useTaskStore();
   const { decrement, isExhausted, resetIfNewDay } = useRateLimitStore();
   const { addItem } = useHistoryStore();
 
+  const [provider, setProvider] = useState<"magnific" | "leonardo">("magnific");
+  const [leonardoModel, setLeonardoModel] = useState(LEONARDO_VIDEO_MODELS[0].id);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState(PRODUCT_STYLES[0].id);
@@ -79,7 +88,6 @@ export default function ProductVideoPage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [suggestedStyle, setSuggestedStyle] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -131,31 +139,12 @@ export default function ProductVideoPage() {
 
   // Rule-based style matching from product description
   const matchStyleToProduct = (description: string): string => {
-    // Skincare, beauty, cosmetics → Floating Premium or Lifestyle
-    if (/skincare|cream|serum|beauty|cosmetic|lotion|perfume|fragrance/.test(description)) {
-      return "floating-premium";
-    }
-    // Tech, gadget, electronic → Neon Glow or Hero Reveal
-    if (/tech|gadget|phone|laptop|electronic|device|headphone|speaker|watch/.test(description)) {
-      return "neon-glow";
-    }
-    // Food, drink, beverage → Splash Dynamic
-    if (/food|drink|beverage|bottle|juice|coffee|tea|water|soda/.test(description)) {
-      return "splash-dynamic";
-    }
-    // Fashion, clothing, shoes → Lifestyle Scene
-    if (/fashion|cloth|shoe|sneaker|bag|dress|shirt|wear|apparel/.test(description)) {
-      return "lifestyle-context";
-    }
-    // Luxury, jewelry, premium → Hero Reveal
-    if (/luxury|gold|diamond|jewelry|premium|elegant|ring|necklace/.test(description)) {
-      return "hero-reveal";
-    }
-    // Box, package → Unboxing
-    if (/box|package|packaging|wrapped|gift/.test(description)) {
-      return "unboxing";
-    }
-    // Default: 360 showcase (works for everything)
+    if (/skincare|cream|serum|beauty|cosmetic|lotion|perfume|fragrance/.test(description)) return "floating-premium";
+    if (/tech|gadget|phone|laptop|electronic|device|headphone|speaker|watch/.test(description)) return "neon-glow";
+    if (/food|drink|beverage|bottle|juice|coffee|tea|water|soda/.test(description)) return "splash-dynamic";
+    if (/fashion|cloth|shoe|sneaker|bag|dress|shirt|wear|apparel/.test(description)) return "lifestyle-context";
+    if (/luxury|gold|diamond|jewelry|premium|elegant|ring|necklace/.test(description)) return "hero-reveal";
+    if (/box|package|packaging|wrapped|gift/.test(description)) return "unboxing";
     return "360-showcase";
   };
 
@@ -173,7 +162,56 @@ export default function ProductVideoPage() {
     return data.url;
   };
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerateLeonardo = useCallback(async () => {
+    const leoKey = getLeonardoKey();
+    if (!leoKey) { setError("Leonardo API key belum diset. Tambahkan di Settings."); return; }
+
+    setIsSubmitting(true); setStatus("PENDING"); setResultUrl(null); setError(null);
+
+    try {
+      let finalPrompt = style.prompt;
+      if (customDetail.trim()) {
+        finalPrompt += `. Product details: ${customDetail.trim()}`;
+      }
+
+      const body = {
+        model: leonardoModel,
+        public: false,
+        parameters: {
+          prompt: finalPrompt,
+          duration: 5,
+          width: 1920,
+          height: 1080,
+          mode: "RESOLUTION_1080",
+        },
+      };
+
+      const submitResult = await leonardoGenerate(leoKey, body);
+      if (!submitResult.ok) {
+        setError(submitResult.error || "Failed to submit to Leonardo");
+        setStatus("FAILED"); setIsSubmitting(false); return;
+      }
+
+      setStatus("PROCESSING"); setIsSubmitting(false);
+
+      const pollResult = await leonardoPoll(leoKey, submitResult.generationId!, {
+        interval: 5000,
+        timeout: 300000,
+        onStatusChange: (s) => setStatus(s === "COMPLETE" ? "COMPLETED" : s),
+      });
+
+      if (pollResult.status === "COMPLETE" && pollResult.videoUrl) {
+        setResultUrl(pollResult.videoUrl); setStatus("COMPLETED");
+        addItem({ id: crypto.randomUUID(), taskType: "video-generation", resultUrl: pollResult.videoUrl, resultType: "video", params: { style: selectedStyle, provider: "leonardo", model: leonardoModel }, createdAt: new Date().toISOString() });
+      } else {
+        setError(pollResult.error || "Generation failed"); setStatus("FAILED");
+      }
+    } catch {
+      setError("Failed. Check connection and try again."); setStatus("FAILED"); setIsSubmitting(false);
+    }
+  }, [leonardoModel, style, customDetail, selectedStyle, addItem]);
+
+  const handleGenerateMagnific = useCallback(async () => {
     if (!apiKey || !selectedImage) return;
     if (isExhausted("video-kling-pro")) { setError("Daily quota exhausted."); return; }
 
@@ -192,7 +230,6 @@ export default function ProductVideoPage() {
           reader.readAsDataURL(selectedImage);
         });
 
-        // Step 1: Get product description via Image-to-Prompt (Magnific)
         const analyzeResponse = await apiRequest<{ data: { task_id: string; status: string } }>(
           MAGNIFIC_ENDPOINTS["image-to-prompt"],
           { method: "POST", body: { image: base64 }, apiKey, timeout: 15000 }
@@ -219,7 +256,6 @@ export default function ProductVideoPage() {
           }
         }
 
-        // Step 2: Ask Gemini text AI to suggest best style
         if (description) {
           const geminiKey = typeof window !== "undefined" ? localStorage.getItem("nexvora-gemini-key") || "" : "";
           if (geminiKey) {
@@ -234,13 +270,11 @@ export default function ProductVideoPage() {
               finalStyle = PRODUCT_STYLES.find((s) => s.id === suggestedId) || PRODUCT_STYLES[1];
               setSuggestedStyle(suggestedId);
             } catch {
-              // Fallback to rule matching
               const suggestedId = matchStyleToProduct(description.toLowerCase());
               finalStyle = PRODUCT_STYLES.find((s) => s.id === suggestedId) || PRODUCT_STYLES[1];
               setSuggestedStyle(suggestedId);
             }
           } else {
-            // No Gemini key — use rule matching
             const suggestedId = matchStyleToProduct(description.toLowerCase());
             finalStyle = PRODUCT_STYLES.find((s) => s.id === suggestedId) || PRODUCT_STYLES[1];
             setSuggestedStyle(suggestedId);
@@ -250,7 +284,6 @@ export default function ProductVideoPage() {
         }
       }
 
-      // Build the final prompt
       let finalPrompt = finalStyle.prompt;
       if (customDetail.trim()) {
         finalPrompt += `. Product details: ${customDetail.trim()}`;
@@ -301,6 +334,15 @@ export default function ProductVideoPage() {
     }
   }, [apiKey, selectedImage, style, customDetail, selectedStyle, isExhausted, decrement, addTask, updateTask, addItem]);
 
+  const handleGenerate = useCallback(() => {
+    if (provider === "leonardo") return handleGenerateLeonardo();
+    return handleGenerateMagnific();
+  }, [provider, handleGenerateLeonardo, handleGenerateMagnific]);
+
+  const canGenerate = provider === "magnific"
+    ? !!selectedImage && !isSubmitting && status !== "PROCESSING" && !!apiKey
+    : !isSubmitting && status !== "PROCESSING" && !!getLeonardoKey();
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-4">
@@ -317,7 +359,7 @@ export default function ProductVideoPage() {
         💡 <strong>Apa ini?</strong> Upload foto produk, pilih style video (hero reveal, 360° showcase, floating, dll), dan AI akan bikin video iklan produk yang profesional. Prompt sudah di-optimize biar hasilnya cinematic dan eye-catching.
       </div>
 
-      {!apiKey && (
+      {!apiKey && provider === "magnific" && (
         <div className="mb-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
           <p className="text-sm font-medium">🔑 API Key belum diset</p>
           <p className="text-xs text-muted-foreground mt-1">Klik &quot;API Key&quot; di header untuk set.</p>
@@ -326,6 +368,37 @@ export default function ProductVideoPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
+          {/* Provider Selector */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Provider</label>
+            <div className="flex gap-2">
+              <button onClick={() => setProvider("magnific")}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${provider === "magnific" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                Magnific (with image)
+              </button>
+              <button onClick={() => setProvider("leonardo")}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${provider === "leonardo" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/50"}`}>
+                Leonardo (text-to-video)
+              </button>
+            </div>
+          </div>
+
+          {/* Leonardo Model Selector */}
+          {provider === "leonardo" && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Model</label>
+              <select value={leonardoModel} onChange={(e) => setLeonardoModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                {LEONARDO_VIDEO_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                ⚠️ Leonardo mode generates product video from text description. Upload product photo as visual reference only.
+              </p>
+            </div>
+          )}
+
           {/* Image */}
           <div>
             <label className="text-sm font-medium mb-1.5 block">Foto Produk</label>
@@ -357,7 +430,7 @@ export default function ProductVideoPage() {
           </div>
 
           <button onClick={handleGenerate}
-            disabled={!selectedImage || isSubmitting || status === "PROCESSING" || !apiKey}
+            disabled={!canGenerate}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 text-white font-medium text-sm hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {isSubmitting || status === "PROCESSING" ? (
               <><Loader2 className="w-4 h-4 animate-spin" />Generating Product Video...</>
