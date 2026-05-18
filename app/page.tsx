@@ -83,7 +83,7 @@ export default function HomePage() {
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
           <button
-            onClick={() => router.push("/product")}
+            onClick={() => router.push("/generate")}
             style={{
               background: "#fff",
               color: "#09090b",
@@ -128,19 +128,18 @@ export default function HomePage() {
           }}
         >
           {[
-            { title: "Product Photo Generator", desc: "Foto produk berbagai background", href: "/product", api: "Magnific" },
-            { title: "UGC Video Creator", desc: "Video UGC untuk iklan & sosmed", href: "/ugc", api: "Magnific" },
             { title: "Image Generation", desc: "Generate gambar dari teks", href: "/generate", api: "Magnific" },
+            { title: "Product Video", desc: "Video iklan produk profesional", href: "/product-video", api: "Magnific" },
+            { title: "UGC Video Creator", desc: "Video UGC untuk iklan & sosmed", href: "/ugc", api: "Magnific" },
             { title: "Motion Control", desc: "Transfer gerakan video ke foto", href: "/motion", api: "Magnific" },
             { title: "Image Upscaler", desc: "Perbesar & pertajam gambar", href: "/upscale", api: "Magnific" },
             { title: "Image Expand", desc: "Perluas area gambar dengan AI", href: "/expand", api: "Magnific" },
             { title: "Image Relight", desc: "Ubah pencahayaan foto", href: "/relight", api: "Magnific" },
-            { title: "Video Generation", desc: "Coming soon", href: "/video", api: "—", disabled: true },
+            { title: "Image to Video", desc: "Animate foto jadi video", href: "/video", api: "Magnific" },
           ].map((tool) => (
             <button
               key={tool.href}
-              onClick={() => !tool.disabled && router.push(tool.href)}
-              disabled={tool.disabled}
+              onClick={() => router.push(tool.href)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -148,21 +147,18 @@ export default function HomePage() {
                 padding: "14px 16px",
                 borderRadius: 10,
                 border: "1px solid rgba(255,255,255,0.07)",
-                background: tool.disabled ? "transparent" : "rgba(255,255,255,0.02)",
-                cursor: tool.disabled ? "not-allowed" : "pointer",
-                opacity: tool.disabled ? 0.35 : 1,
+                background: "rgba(255,255,255,0.02)",
+                cursor: "pointer",
                 textAlign: "left",
                 transition: "border-color 0.15s, background 0.15s",
               }}
               onMouseEnter={(e) => {
-                if (!tool.disabled) {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                }
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
-                e.currentTarget.style.background = tool.disabled ? "transparent" : "rgba(255,255,255,0.02)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.02)";
               }}
             >
               <div>
