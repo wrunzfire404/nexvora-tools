@@ -134,6 +134,24 @@ export const NAV_ITEMS = [
     description: "Track active tasks",
   },
   {
+    title: "Batch Upscaler",
+    href: "/batch-upscale",
+    icon: "Layers",
+    description: "Upscale banyak gambar sekaligus",
+  },
+  {
+    title: "Logo Animator",
+    href: "/logo-animate",
+    icon: "Clapperboard",
+    description: "Animate logo jadi video intro",
+  },
+  {
+    title: "Thumbnail",
+    href: "/thumbnail",
+    icon: "MonitorPlay",
+    description: "Generate thumbnail YouTube",
+  },
+  {
     title: "History",
     href: "/history",
     icon: "History",

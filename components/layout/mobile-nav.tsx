@@ -19,6 +19,9 @@ import {
   BarChart3,
   ShoppingBag,
   Package,
+  Layers,
+  Clapperboard,
+  MonitorPlay,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -39,6 +42,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   BarChart3,
   ShoppingBag,
   Package,
+  Layers,
+  Clapperboard,
+  MonitorPlay,
 };
 
 export function MobileNav() {
