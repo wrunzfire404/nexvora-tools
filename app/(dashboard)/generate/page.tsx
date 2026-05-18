@@ -13,6 +13,18 @@ import { DownloadButton } from "@/components/shared/download-button";
 import { TaskStatusBadge } from "@/components/shared/task-status";
 import { IMAGE_MODELS } from "@/types/models";
 import { isLikelyNonEnglish, translatePromptToEnglish } from "@/lib/translate";
+import { leonardoGenerate, leonardoPoll, getLeonardoKey } from "@/lib/leonardo-client";
+
+// Combined models: Magnific + Leonardo
+const ALL_IMAGE_MODELS = [
+  ...IMAGE_MODELS.map((m) => ({ ...m, provider: "magnific" as const })),
+  // Leonardo image models
+  { id: "leo-flux-2-pro", name: "FLUX.2 Pro", description: "Premium quality", provider: "leonardo" as const, leonardoModel: "flux-2-pro", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-flux-dev", name: "FLUX Dev", description: "High quality, detailed", provider: "leonardo" as const, leonardoModel: "flux-dev", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-phoenix", name: "Phoenix 1.0", description: "Leonardo's own model", provider: "leonardo" as const, leonardoModel: "phoenix-1.0", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-ideogram", name: "Ideogram 3.0", description: "Great for text in images", provider: "leonardo" as const, leonardoModel: "ideogram-3.0", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-gpt-image-2", name: "GPT Image 2", description: "OpenAI's image model", provider: "leonardo" as const, leonardoModel: "gpt-image-2", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+];
 
 export default function GeneratePage() {
   const { apiKey } = useAuthStore();
@@ -21,7 +33,7 @@ export default function GeneratePage() {
   const { addItem } = useHistoryStore();
 
   const [prompt, setPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState(IMAGE_MODELS[0].id);
+  const [selectedModel, setSelectedModel] = useState(ALL_IMAGE_MODELS[0].id);
   const [creativity, setCreativity] = useState(0.5);
   const [guidanceScale, setGuidanceScale] = useState(7.5);
   const [steps, setSteps] = useState(25);
@@ -33,7 +45,7 @@ export default function GeneratePage() {
   const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
   const [isNonEnglish, setIsNonEnglish] = useState(false);
 
-  const model = IMAGE_MODELS.find((m) => m.id === selectedModel)!;
+  const model = ALL_IMAGE_MODELS.find((m) => m.id === selectedModel)!;
 
   useEffect(() => {
     resetIfNewDay();
@@ -50,8 +62,20 @@ export default function GeneratePage() {
   }, [prompt]);
 
   const handleGenerate = useCallback(async () => {
-    if (!apiKey || !prompt.trim()) return;
-    if (isExhausted(model.rateKey)) {
+    if (!prompt.trim()) return;
+
+    // Check API key based on provider
+    if (model.provider === "magnific" && !apiKey) {
+      setError("Magnific API Key belum diset. Klik 'API Keys' di kanan atas.");
+      return;
+    }
+    const leoKey = getLeonardoKey();
+    if (model.provider === "leonardo" && !leoKey) {
+      setError("Leonardo API Key belum diset. Klik 'API Keys' di kanan atas.");
+      return;
+    }
+
+    if (model.provider === "magnific" && isExhausted(model.rateKey)) {
       setError("Daily quota exhausted for this model.");
       return;
     }
@@ -65,101 +89,109 @@ export default function GeneratePage() {
     // Auto-translate if enabled and prompt is non-English
     let finalPrompt = prompt.trim();
     if (autoTranslate && isNonEnglish) {
-      setStatus("PENDING");
-      const { translated, error: translateError } = await translatePromptToEnglish(finalPrompt, apiKey);
-      if (translateError) {
-        // Translation failed, proceed with original prompt
-        console.warn("Translation failed, using original:", translateError);
-      } else {
-        finalPrompt = translated;
-        setTranslatedPrompt(translated);
+      if (apiKey) {
+        const { translated, error: translateError } = await translatePromptToEnglish(finalPrompt, apiKey);
+        if (!translateError) {
+          finalPrompt = translated;
+          setTranslatedPrompt(translated);
+        }
       }
     }
 
-    // Build request body based on model
-    const body: Record<string, unknown> = { prompt: finalPrompt };
+    if (model.provider === "leonardo") {
+      // Leonardo flow
+      const body = {
+        model: (model as { leonardoModel?: string }).leonardoModel,
+        public: false,
+        parameters: {
+          prompt: finalPrompt,
+          width: 1024,
+          height: 1024,
+        },
+      };
 
-    if (model.id === "mystic") {
-      body.creativity = creativity;
-    } else if (model.id === "flux-dev" || model.id === "flux-pro-v1-1") {
-      body.guidance_scale = guidanceScale;
-      body.num_inference_steps = steps;
-    }
+      const result = await leonardoGenerate(leoKey, body);
+      if (!result.ok) { setError(result.error || "Failed"); setStatus("FAILED"); setIsSubmitting(false); return; }
 
-    const response = await submitTask(model.endpoint, body, apiKey);
+      setStatus("PROCESSING"); setIsSubmitting(false);
 
-    if (!response.ok) {
-      setError(response.error || "Failed to submit task");
-      setStatus("FAILED");
-      setIsSubmitting(false);
-      return;
-    }
+      const pollResult = await leonardoPoll(leoKey, result.generationId!, {
+        interval: 3000,
+        timeout: 120000,
+        onStatusChange: (s) => setStatus(s === "COMPLETE" ? "COMPLETED" : s),
+      });
 
-    const taskId = response.data!.data.task_id;
-    decrement(model.rateKey);
-
-    // Add to task store
-    addTask({
-      id: crypto.randomUUID(),
-      taskId,
-      type: "image-generation",
-      status: "PROCESSING",
-      endpoint: model.endpoint,
-      params: body,
-      createdAt: new Date().toISOString(),
-    });
-
-    setStatus("PROCESSING");
-    setIsSubmitting(false);
-
-    // Start polling
-    pollTask({
-      taskId,
-      endpoint: model.endpoint,
-      apiKey,
-      interval: model.pollInterval,
-      timeout: model.pollTimeout,
-      onStatusChange: (s) => setStatus(s),
-      onComplete: (result) => {
-        const url = result.url || result.urls?.[0];
-        setResultUrl(url || null);
+      if (pollResult.imageUrl) {
+        setResultUrl(pollResult.imageUrl);
         setStatus("COMPLETED");
-        updateTask(taskId, {
-          status: "COMPLETED",
-          resultUrl: url,
-          completedAt: new Date().toISOString(),
-        });
-        if (url) {
-          addItem({
-            id: crypto.randomUUID(),
-            taskType: "image-generation",
-            resultUrl: url,
-            resultType: "image",
-            params: body,
-            createdAt: new Date().toISOString(),
-          });
-        }
-      },
-      onError: (err) => {
-        setError(err);
+        addItem({ id: crypto.randomUUID(), taskType: "image-generation", resultUrl: pollResult.imageUrl, resultType: "image", params: { prompt: finalPrompt, model: model.id }, createdAt: new Date().toISOString() });
+      } else {
+        setError(pollResult.error || "No image returned");
         setStatus("FAILED");
-        updateTask(taskId, { status: "FAILED", error: err });
-      },
-    });
+      }
+    } else {
+      // Magnific flow (existing)
+      const body: Record<string, unknown> = { prompt: finalPrompt };
+
+      if (model.id === "mystic") {
+        body.creativity = creativity;
+      } else if (model.id === "flux-dev" || model.id === "flux-pro-v1-1") {
+        body.guidance_scale = guidanceScale;
+        body.num_inference_steps = steps;
+      }
+
+      const response = await submitTask(model.endpoint, body, apiKey!);
+
+      if (!response.ok) {
+        setError(response.error || "Failed to submit task");
+        setStatus("FAILED");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const taskId = response.data!.data.task_id;
+      decrement(model.rateKey);
+
+      addTask({
+        id: crypto.randomUUID(),
+        taskId,
+        type: "image-generation",
+        status: "PROCESSING",
+        endpoint: model.endpoint,
+        params: body,
+        createdAt: new Date().toISOString(),
+      });
+
+      setStatus("PROCESSING");
+      setIsSubmitting(false);
+
+      pollTask({
+        taskId,
+        endpoint: model.endpoint,
+        apiKey: apiKey!,
+        interval: model.pollInterval,
+        timeout: model.pollTimeout,
+        onStatusChange: (s) => setStatus(s),
+        onComplete: (result) => {
+          const url = result.url || result.urls?.[0];
+          setResultUrl(url || null);
+          setStatus("COMPLETED");
+          updateTask(taskId, { status: "COMPLETED", resultUrl: url, completedAt: new Date().toISOString() });
+          if (url) {
+            addItem({ id: crypto.randomUUID(), taskType: "image-generation", resultUrl: url, resultType: "image", params: body, createdAt: new Date().toISOString() });
+          }
+        },
+        onError: (err) => {
+          setError(err);
+          setStatus("FAILED");
+          updateTask(taskId, { status: "FAILED", error: err });
+        },
+      });
+    }
   }, [
-    apiKey,
-    prompt,
-    model,
-    creativity,
-    guidanceScale,
-    steps,
-    autoTranslate,
-    isNonEnglish,
-    isExhausted,
-    decrement,
-    addTask,
-    updateTask,
-    addItem,
+    apiKey, prompt, model, creativity, guidanceScale, steps,
+    autoTranslate, isNonEnglish,
+    isExhausted, decrement, addTask, updateTask, addItem,
   ]);
 
   return (
@@ -199,11 +231,16 @@ export default function GeneratePage() {
               onChange={(e) => setSelectedModel(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {IMAGE_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} — {m.description}
-                </option>
-              ))}
+              <optgroup label="🟣 Magnific (free tier)">
+                {ALL_IMAGE_MODELS.filter(m => m.provider === "magnific").map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </optgroup>
+              <optgroup label="🟡 Leonardo AI ($5 credit)">
+                {ALL_IMAGE_MODELS.filter(m => m.provider === "leonardo").map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -257,7 +294,7 @@ export default function GeneratePage() {
           )}
 
           {/* Model-specific controls */}
-          {model.supports?.creativity && (
+          {model.provider === "magnific" && model.supports?.creativity && (
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 Creativity: {creativity.toFixed(2)}
@@ -278,7 +315,7 @@ export default function GeneratePage() {
             </div>
           )}
 
-          {model.supports?.guidanceScale && (
+          {model.provider === "magnific" && model.supports?.guidanceScale && (
             <>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
