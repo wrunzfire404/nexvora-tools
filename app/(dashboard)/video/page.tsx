@@ -15,42 +15,79 @@ import { TaskStatusBadge } from "@/components/shared/task-status";
 import { POLL_INTERVALS, POLL_TIMEOUTS } from "@/lib/constants";
 import { isLikelyNonEnglish, translatePromptToEnglish } from "@/lib/translate";
 
-const VIDEO_MODELS = [
+type Provider = "magnific" | "leonardo";
+
+interface VideoModel {
+  id: string;
+  name: string;
+  description: string;
+  provider: Provider;
+  // Magnific-specific
+  endpoint?: string;
+  pollEndpoint?: string;
+  rateKey?: string;
+  maxPerDay?: number;
+  // Leonardo-specific
+  leonardoModel?: string;
+}
+
+const VIDEO_MODELS: VideoModel[] = [
+  // Magnific models
   {
-    id: "kling-v2-6-pro",
+    id: "magnific-kling-v2-6-pro",
     name: "Kling 2.6 Pro",
-    description: "Best quality",
+    description: "Magnific — Best quality",
+    provider: "magnific",
     endpoint: "/v1/ai/image-to-video/kling-v2-6-pro",
     pollEndpoint: "/v1/ai/image-to-video/kling-v2-6",
     rateKey: "video-kling-pro",
     maxPerDay: 11,
   },
   {
-    id: "kling-v2-6-std",
+    id: "magnific-kling-v2-6-std",
     name: "Kling 2.6 Standard",
-    description: "Good quality, faster",
+    description: "Magnific — Good quality",
+    provider: "magnific",
     endpoint: "/v1/ai/image-to-video/kling-v2-6-std",
     pollEndpoint: "/v1/ai/image-to-video/kling-v2-6",
     rateKey: "video-kling-standard",
     maxPerDay: 20,
   },
+  // Leonardo models
   {
-    id: "kling-pro",
-    name: "Kling 1.6 Pro",
-    description: "Reliable",
-    endpoint: "/v1/ai/image-to-video/kling-pro",
-    pollEndpoint: "/v1/ai/image-to-video/kling-pro",
-    rateKey: "video-kling-pro",
-    maxPerDay: 11,
+    id: "leonardo-kling-3",
+    name: "⭐ Kling 3.0",
+    description: "Leonardo — Best video model",
+    provider: "leonardo",
+    leonardoModel: "kling-3.0",
   },
   {
-    id: "kling-std",
-    name: "Kling 1.6 Standard",
-    description: "Fast, basic",
-    endpoint: "/v1/ai/image-to-video/kling-std",
-    pollEndpoint: "/v1/ai/image-to-video/kling-std",
-    rateKey: "video-kling-standard",
-    maxPerDay: 20,
+    id: "leonardo-kling-2-6",
+    name: "Kling 2.6",
+    description: "Leonardo — Reliable",
+    provider: "leonardo",
+    leonardoModel: "kling-2.6",
+  },
+  {
+    id: "leonardo-veo-3",
+    name: "⭐ Veo 3.0",
+    description: "Leonardo — Google's best video",
+    provider: "leonardo",
+    leonardoModel: "veo-3.0",
+  },
+  {
+    id: "leonardo-hailuo",
+    name: "Hailuo 2.3",
+    description: "Leonardo — MiniMax video",
+    provider: "leonardo",
+    leonardoModel: "hailuo-2.3",
+  },
+  {
+    id: "leonardo-seedance",
+    name: "Seedance 2.0",
+    description: "Leonardo — ByteDance video",
+    provider: "leonardo",
+    leonardoModel: "seedance-2.0",
   },
 ];
 
@@ -69,8 +106,6 @@ export default function VideoPage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const model = VIDEO_MODELS.find((m) => m.id === selectedModel)!;
 
   useEffect(() => { resetIfNewDay(); }, [resetIfNewDay]);
 
@@ -96,8 +131,20 @@ export default function VideoPage() {
   };
 
   const handleGenerate = useCallback(async () => {
-    if (!apiKey || !selectedImage) return;
-    if (isExhausted(model.rateKey)) { setError("Daily quota exhausted."); return; }
+    if (!selectedImage) return;
+
+    const model = VIDEO_MODELS.find((m) => m.id === selectedModel)!;
+
+    // Check which key is needed
+    if (model.provider === "magnific" && !apiKey) {
+      setError("Magnific API Key belum diset. Klik 'API Keys' di kanan atas.");
+      return;
+    }
+    const leonardoKey = typeof window !== "undefined" ? localStorage.getItem("nexvora-leonardo-key") || "" : "";
+    if (model.provider === "leonardo" && !leonardoKey) {
+      setError("Leonardo API Key belum diset. Klik 'API Keys' di kanan atas.");
+      return;
+    }
 
     setIsSubmitting(true); setStatus("PENDING"); setResultUrl(null); setError(null);
 
@@ -105,61 +152,106 @@ export default function VideoPage() {
       // Auto-translate
       let finalPrompt = prompt.trim();
       if (finalPrompt && isLikelyNonEnglish(finalPrompt)) {
-        const { translated } = await translatePromptToEnglish(finalPrompt, apiKey);
-        finalPrompt = translated;
+        if (apiKey) {
+          const { translated } = await translatePromptToEnglish(finalPrompt, apiKey);
+          finalPrompt = translated;
+        }
       }
       if (finalPrompt) {
         finalPrompt = `High quality video, smooth motion, professional. ${finalPrompt}`;
       }
 
-      // Upload image to get public URL
-      const imageUrl = await uploadFile(selectedImage);
+      if (model.provider === "magnific") {
+        // Magnific flow (existing)
+        const imageUrl = await uploadFile(selectedImage);
+        const body: Record<string, unknown> = {
+          image: imageUrl,
+          duration,
+          cfg_scale: 0.5,
+          negative_prompt: "blur, distort, low quality",
+        };
+        if (finalPrompt) body.prompt = finalPrompt;
 
-      // Build body — use image_url (public URL)
-      const body: Record<string, unknown> = {
-        image: imageUrl,
-        duration,
-        cfg_scale: 0.5,
-        negative_prompt: "blur, distort, low quality",
-      };
-      if (finalPrompt) body.prompt = finalPrompt;
+        const response = await submitTask(model.endpoint!, body, apiKey!);
+        if (!response.ok) { setError(response.error || "Failed"); setStatus("FAILED"); setIsSubmitting(false); return; }
 
-      const response = await submitTask(model.endpoint, body, apiKey);
+        const taskId = response.data!.data.task_id;
+        addTask({ id: crypto.randomUUID(), taskId, type: "video-generation", status: "PROCESSING", endpoint: model.pollEndpoint!, params: { prompt: finalPrompt }, createdAt: new Date().toISOString() });
+        setStatus("PROCESSING"); setIsSubmitting(false);
 
-      if (!response.ok) {
-        setError(response.error || "Failed to submit");
-        setStatus("FAILED"); setIsSubmitting(false);
-        return;
+        pollTask({
+          taskId, endpoint: model.pollEndpoint!, apiKey: apiKey!,
+          interval: POLL_INTERVALS.video, timeout: POLL_TIMEOUTS.video,
+          onStatusChange: (s) => setStatus(s),
+          onComplete: (result) => {
+            const url = result.url || result.urls?.[0];
+            setResultUrl(url || null); setStatus("COMPLETED");
+            updateTask(taskId, { status: "COMPLETED", resultUrl: url, completedAt: new Date().toISOString() });
+            if (url) addItem({ id: crypto.randomUUID(), taskType: "video-generation", resultUrl: url, resultType: "video", params: { prompt: finalPrompt }, createdAt: new Date().toISOString() });
+          },
+          onError: (err) => { setError(err); setStatus("FAILED"); updateTask(taskId, { status: "FAILED", error: err }); },
+        });
+
+      } else {
+        // Leonardo flow
+        const imageUrl = await uploadFile(selectedImage);
+
+        const body = {
+          model: model.leonardoModel,
+          public: false,
+          parameters: {
+            prompt: finalPrompt || "Animate this image with smooth natural motion",
+            duration: parseInt(duration),
+            width: 1080,
+            height: 1920,
+            mode: "RESOLUTION_1080",
+            motion_has_audio: false,
+          },
+        };
+
+        const response = await fetch("/api/leonardo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-leonardo-key": leonardoKey },
+          body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+        if (!response.ok) { setError(data.error || "Leonardo API error"); setStatus("FAILED"); setIsSubmitting(false); return; }
+
+        const generationId = data?.generations_by_pk?.id || data?.sdGenerationJob?.generationId || data?.id;
+        if (!generationId) { setError("No generation ID returned"); setStatus("FAILED"); setIsSubmitting(false); return; }
+
+        setStatus("PROCESSING"); setIsSubmitting(false);
+
+        // Poll Leonardo
+        const pollLeonardo = async () => {
+          for (let i = 0; i < 60; i++) {
+            await new Promise((r) => setTimeout(r, 5000));
+            const pollRes = await fetch(`/api/leonardo?id=${generationId}`, {
+              headers: { "x-leonardo-key": leonardoKey },
+            });
+            const pollData = await pollRes.json();
+            const gen = pollData?.generations_by_pk || pollData;
+            if (gen?.status === "COMPLETE") {
+              const videoUrl = gen?.generated_images?.[0]?.url || gen?.motion_mp4_url;
+              if (videoUrl) {
+                setResultUrl(videoUrl); setStatus("COMPLETED");
+                addItem({ id: crypto.randomUUID(), taskType: "video-generation", resultUrl: videoUrl, resultType: "video", params: { prompt: finalPrompt, model: model.leonardoModel }, createdAt: new Date().toISOString() });
+              } else {
+                setError("Completed but no video URL"); setStatus("FAILED");
+              }
+              return;
+            }
+            if (gen?.status === "FAILED") { setError("Generation failed"); setStatus("FAILED"); return; }
+          }
+          setError("Timeout"); setStatus("FAILED");
+        };
+        pollLeonardo();
       }
-
-      const taskId = response.data!.data.task_id;
-      decrement(model.rateKey);
-
-      addTask({
-        id: crypto.randomUUID(), taskId, type: "video-generation", status: "PROCESSING",
-        endpoint: model.pollEndpoint, params: { prompt: finalPrompt, duration },
-        createdAt: new Date().toISOString(),
-      });
-
-      setStatus("PROCESSING"); setIsSubmitting(false);
-
-      pollTask({
-        taskId, endpoint: model.pollEndpoint, apiKey,
-        interval: POLL_INTERVALS.video, timeout: POLL_TIMEOUTS.video,
-        onStatusChange: (s) => setStatus(s),
-        onComplete: (result) => {
-          const url = result.url || result.urls?.[0];
-          setResultUrl(url || null); setStatus("COMPLETED");
-          updateTask(taskId, { status: "COMPLETED", resultUrl: url, completedAt: new Date().toISOString() });
-          if (url) addItem({ id: crypto.randomUUID(), taskType: "video-generation", resultUrl: url, resultType: "video", params: { prompt: finalPrompt }, createdAt: new Date().toISOString() });
-        },
-        onError: (err) => { setError(err); setStatus("FAILED"); updateTask(taskId, { status: "FAILED", error: err }); },
-      });
     } catch (err) {
-      setError("Failed. Check connection and try again.");
-      setStatus("FAILED"); setIsSubmitting(false);
+      setError("Failed. Check connection."); setStatus("FAILED"); setIsSubmitting(false);
     }
-  }, [apiKey, selectedImage, prompt, model, duration, isExhausted, decrement, addTask, updateTask, addItem]);
+  }, [apiKey, selectedImage, prompt, selectedModel, duration, addTask, updateTask, addItem]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -191,9 +283,16 @@ export default function VideoPage() {
             <label className="text-sm font-medium mb-1.5 block">Model</label>
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              {VIDEO_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} — {m.description} ({m.maxPerDay}/day)</option>
-              ))}
+              <optgroup label="🟣 Magnific (free tier)">
+                {VIDEO_MODELS.filter(m => m.provider === "magnific").map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </optgroup>
+              <optgroup label="🟡 Leonardo AI ($5 credit)">
+                {VIDEO_MODELS.filter(m => m.provider === "leonardo").map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -221,7 +320,7 @@ export default function VideoPage() {
           </div>
 
           <button onClick={handleGenerate}
-            disabled={!selectedImage || isSubmitting || status === "PROCESSING" || !apiKey}
+            disabled={!selectedImage || isSubmitting || status === "PROCESSING"}
             className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {isSubmitting || status === "PROCESSING" ? (
               <><Loader2 className="w-4 h-4 animate-spin" />Generating Video...</>
