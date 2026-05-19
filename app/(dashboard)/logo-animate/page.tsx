@@ -290,7 +290,7 @@ export default function LogoAnimatePage() {
             className="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-medium text-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {isSubmitting || status === "PROCESSING" ? <><Loader2 className="w-4 h-4 animate-spin" />Animating Logo...</> : <><Clapperboard className="w-4 h-4" />Animate Logo</>}
           </button>
-          {status === "PROCESSING" && <p className="text-xs text-muted-foreground">⏳ 2-5 menit. Prompt sudah di-optimize untuk animasi logo terbaik.</p>}
+          {status === "PROCESSING" && <p className="text-xs text-muted-foreground">⏳ Magnific: 2-5 menit. Leonardo: bisa 10-30 menit. Jangan tutup halaman.</p>}
         </div>
 
         <div className="space-y-4">

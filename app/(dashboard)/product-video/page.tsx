@@ -440,7 +440,7 @@ export default function ProductVideoPage() {
           </button>
 
           {status === "PROCESSING" && (
-            <p className="text-xs text-muted-foreground">⏳ Video generation takes 2-5 minutes. Prompt sudah di-optimize untuk hasil terbaik.</p>
+            <p className="text-xs text-muted-foreground">⏳ Magnific: 2-5 menit. Leonardo: bisa 10-30 menit (antrian). Jangan tutup halaman.</p>
           )}
         </div>
 

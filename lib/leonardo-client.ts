@@ -59,7 +59,7 @@ export async function leonardoPoll(
     onStatusChange?: (status: string) => void;
   } = {}
 ): Promise<LeonardoGenerationResult> {
-  const { interval = 5000, timeout = 900000, onStatusChange } = options;
+  const { interval = 5000, timeout = 1800000, onStatusChange } = options;
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {

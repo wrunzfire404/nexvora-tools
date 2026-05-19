@@ -284,6 +284,9 @@ export default function VideoPage() {
                 ))}
               </optgroup>
             </select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              ⚠️ Leonardo video generation bisa memakan waktu 10-30 menit karena sistem antrian. Magnific lebih cepat (2-5 menit).
+            </p>
           </div>
 
           {/* Image */}
@@ -319,7 +322,12 @@ export default function VideoPage() {
             )}
           </button>
 
-          {status === "PROCESSING" && <p className="text-xs text-muted-foreground">⏳ Video generation takes 2-5 minutes...</p>}
+          {status === "PROCESSING" && (
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>⏳ Magnific: 2-5 menit. Leonardo: bisa 10-30 menit (antrian server).</p>
+              <p>Jangan tutup halaman ini sampai selesai.</p>
+            </div>
+          )}
         </div>
 
         {/* Result */}
