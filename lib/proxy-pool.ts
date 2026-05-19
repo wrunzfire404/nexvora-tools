@@ -1,25 +1,39 @@
 /**
  * Outbound proxy pool for diversifying IP addresses
- * Proxies are loaded from PROXY_LIST environment variable
- * Format: comma-separated list of proxy URLs
- * Example: http://user:pass@ip1:port,http://user:pass@ip2:port
+ * Loads from Redis (Upstash) if available, falls back to PROXY_LIST env variable
  */
 
-let proxies: string[] = [];
+let cachedProxies: string[] | null = null;
+let cacheTime = 0;
 let currentIndex = 0;
 
-function loadProxies(): string[] {
-  if (proxies.length > 0) return proxies;
+const CACHE_TTL = 60000; // 1 minute cache
 
+async function loadProxies(): Promise<string[]> {
+  // Return cache if fresh
+  if (cachedProxies && Date.now() - cacheTime < CACHE_TTL) {
+    return cachedProxies;
+  }
+
+  // Try Redis first
+  try {
+    const { getProxies } = await import("./db");
+    const dbProxies = await getProxies();
+    if (dbProxies.length > 0) {
+      cachedProxies = dbProxies;
+      cacheTime = Date.now();
+      return dbProxies;
+    }
+  } catch {
+    // Redis not available, fall through
+  }
+
+  // Fallback to env variable
   const proxyList = process.env.PROXY_LIST || "";
-  if (!proxyList) return [];
-
-  proxies = proxyList
-    .split(",")
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
-  return proxies;
+  const envProxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
+  cachedProxies = envProxies;
+  cacheTime = Date.now();
+  return envProxies;
 }
 
 /**
@@ -27,17 +41,33 @@ function loadProxies(): string[] {
  * Returns undefined if no proxies configured (direct connection)
  */
 export function getNextProxy(): string | undefined {
-  const pool = loadProxies();
-  if (pool.length === 0) return undefined;
+  // Synchronous — use cached list
+  if (!cachedProxies || cachedProxies.length === 0) {
+    // Try env directly as sync fallback
+    const proxyList = process.env.PROXY_LIST || "";
+    cachedProxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
+    if (cachedProxies.length === 0) return undefined;
+  }
 
-  const proxy = pool[currentIndex % pool.length];
+  const proxy = cachedProxies[currentIndex % cachedProxies.length];
   currentIndex++;
   return proxy;
 }
 
 /**
- * Get proxy count for monitoring
+ * Force refresh proxy cache (call after add/remove)
+ */
+export function invalidateProxyCache(): void {
+  cachedProxies = null;
+  cacheTime = 0;
+}
+
+/**
+ * Get proxy count
  */
 export function getProxyCount(): number {
-  return loadProxies().length;
+  return cachedProxies?.length || 0;
 }
+
+// Pre-load on module init
+loadProxies().catch(() => {});

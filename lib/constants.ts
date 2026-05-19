@@ -157,4 +157,10 @@ export const NAV_ITEMS = [
     icon: "History",
     description: "View past results",
   },
+  {
+    title: "Proxy Status",
+    href: "/proxy-status",
+    icon: "Shield",
+    description: "Cek status koneksi proxy",
+  },
 ] as const;

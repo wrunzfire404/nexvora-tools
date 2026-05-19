@@ -22,6 +22,7 @@ import {
   Layers,
   Clapperboard,
   MonitorPlay,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -45,6 +46,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Layers,
   Clapperboard,
   MonitorPlay,
+  Shield,
 };
 
 export function MobileNav() {
