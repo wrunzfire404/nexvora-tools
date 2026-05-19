@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { getNextProxy } from "@/lib/proxy-pool";
 
 const MAGNIFIC_BASE_URL = "https://api.freepik.com";
 
@@ -46,22 +48,29 @@ async function handleProxy(
 
     if (request.method === "POST") {
       if (contentType?.includes("multipart/form-data")) {
-        // For multipart, pass the raw body
         body = await request.arrayBuffer();
-        // Remove content-type so fetch can set it with boundary
         delete headers["Content-Type"];
       } else {
         body = await request.text();
       }
     }
 
-    console.log(`[Proxy] ${request.method} ${targetUrl}`);
+    // Get outbound proxy for IP diversification
+    const proxyUrl = getNextProxy();
 
-    const response = await fetch(targetUrl, {
+    const fetchOptions: RequestInit & { agent?: unknown } = {
       method: request.method,
       headers,
       body: body as BodyInit | null,
-    });
+    };
+
+    // If proxy configured, use proxy agent
+    if (proxyUrl) {
+      const agent = new HttpsProxyAgent(proxyUrl);
+      (fetchOptions as Record<string, unknown>).agent = agent;
+    }
+
+    const response = await fetch(targetUrl, fetchOptions);
 
     const responseText = await response.text();
     let responseData: unknown;
@@ -70,8 +79,6 @@ async function handleProxy(
     } catch {
       responseData = { raw: responseText };
     }
-
-    console.log(`[Proxy] Response ${response.status}:`, JSON.stringify(responseData).slice(0, 500));
 
     return NextResponse.json(responseData ?? { error: "Empty response" }, {
       status: response.status,

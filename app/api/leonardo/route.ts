@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { getNextProxy } from "@/lib/proxy-pool";
 
 const LEONARDO_BASE_URL = "https://cloud.leonardo.ai/api/rest/v2/generations";
 
@@ -11,8 +13,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const proxyUrl = getNextProxy();
 
-    const response = await fetch(LEONARDO_BASE_URL, {
+    const fetchOptions: RequestInit & { agent?: unknown } = {
       method: "POST",
       headers: {
         "accept": "application/json",
@@ -20,8 +23,14 @@ export async function POST(request: NextRequest) {
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
-    });
+    };
 
+    if (proxyUrl) {
+
+      (fetchOptions as Record<string, unknown>).agent = new HttpsProxyAgent(proxyUrl);
+    }
+
+    const response = await fetch(LEONARDO_BASE_URL, fetchOptions);
     const data = await response.json();
 
     if (!response.ok) {
@@ -52,13 +61,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Generation ID required" }, { status: 400 });
     }
 
-    // Poll uses v1 endpoint, not v2
-    const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+    const proxyUrl = getNextProxy();
+
+    const fetchOptions: RequestInit & { agent?: unknown } = {
       headers: {
         "accept": "application/json",
         "authorization": `Bearer ${apiKey}`,
       },
-    });
+    };
+
+    if (proxyUrl) {
+
+      (fetchOptions as Record<string, unknown>).agent = new HttpsProxyAgent(proxyUrl);
+    }
+
+    const response = await fetch(
+      `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
+      fetchOptions
+    );
 
     const data = await response.json();
 
@@ -75,3 +95,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to poll Leonardo API" }, { status: 500 });
   }
 }
+
