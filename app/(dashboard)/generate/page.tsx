@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Image as ImageIcon, Loader2, Languages } from "lucide-react";
+import { Image as ImageIcon, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useTaskStore } from "@/stores/task-store";
 import { useRateLimitStore } from "@/stores/rate-limit-store";
@@ -12,15 +12,16 @@ import { PromptInput } from "@/components/shared/prompt-input";
 import { DownloadButton } from "@/components/shared/download-button";
 import { TaskStatusBadge } from "@/components/shared/task-status";
 import { IMAGE_MODELS } from "@/types/models";
-import { isLikelyNonEnglish, translatePromptToEnglish } from "@/lib/translate";
 import { leonardoGenerate, leonardoPoll, getLeonardoKey } from "@/lib/leonardo-client";
 
 // Combined models: Magnific + Leonardo
 const ALL_IMAGE_MODELS = [
   ...IMAGE_MODELS.map((m) => ({ ...m, provider: "magnific" as const })),
   // Leonardo image models
-  { id: "leo-flux-2-pro", name: "FLUX.2 Pro", description: "Premium quality", provider: "leonardo" as const, leonardoModel: "flux-2-pro", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-flux-2-pro", name: "FLUX.2 Pro", description: "Premium quality", provider: "leonardo" as const, leonardoModel: "flux-pro-2.0", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
   { id: "leo-flux-dev", name: "FLUX Dev", description: "High quality, detailed", provider: "leonardo" as const, leonardoModel: "flux-dev", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-nano-banana-2", name: "Nano Banana 2", description: "Fast, sharp details", provider: "leonardo" as const, leonardoModel: "nano-banana-2", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
+  { id: "leo-seedream-45", name: "Seedream 4.5", description: "Posters, logos, text-heavy", provider: "leonardo" as const, leonardoModel: "seedream-4.5", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
   { id: "leo-phoenix", name: "Phoenix 1.0", description: "Leonardo's own model", provider: "leonardo" as const, leonardoModel: "phoenix-1.0", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
   { id: "leo-ideogram", name: "Ideogram 3.0", description: "Great for text in images", provider: "leonardo" as const, leonardoModel: "ideogram-3.0", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
   { id: "leo-gpt-image-2", name: "GPT Image 2", description: "OpenAI's image model", provider: "leonardo" as const, leonardoModel: "gpt-image-2", endpoint: "", rateKey: "", maxPerDay: 0, pollInterval: 3000, pollTimeout: 120000 },
@@ -41,25 +42,12 @@ export default function GeneratePage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [autoTranslate, setAutoTranslate] = useState(true);
-  const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
-  const [isNonEnglish, setIsNonEnglish] = useState(false);
 
   const model = ALL_IMAGE_MODELS.find((m) => m.id === selectedModel)!;
 
   useEffect(() => {
     resetIfNewDay();
   }, [resetIfNewDay]);
-
-  // Detect non-English prompt
-  useEffect(() => {
-    if (prompt.trim().length > 5) {
-      setIsNonEnglish(isLikelyNonEnglish(prompt));
-    } else {
-      setIsNonEnglish(false);
-    }
-    setTranslatedPrompt(null);
-  }, [prompt]);
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
@@ -84,19 +72,8 @@ export default function GeneratePage() {
     setStatus("PENDING");
     setResultUrl(null);
     setError(null);
-    setTranslatedPrompt(null);
 
-    // Auto-translate if enabled and prompt is non-English
     let finalPrompt = prompt.trim();
-    if (autoTranslate && isNonEnglish) {
-      if (apiKey) {
-        const { translated, error: translateError } = await translatePromptToEnglish(finalPrompt, apiKey);
-        if (!translateError) {
-          finalPrompt = translated;
-          setTranslatedPrompt(translated);
-        }
-      }
-    }
 
     if (model.provider === "leonardo") {
       // Leonardo flow
@@ -105,6 +82,7 @@ export default function GeneratePage() {
         public: false,
         parameters: {
           prompt: finalPrompt,
+          quantity: 1,
           width: 1024,
           height: 1024,
         },
@@ -190,7 +168,6 @@ export default function GeneratePage() {
     }
   }, [
     apiKey, prompt, model, creativity, guidanceScale, steps,
-    autoTranslate, isNonEnglish,
     isExhausted, decrement, addTask, updateTask, addItem,
   ]);
 
@@ -218,6 +195,7 @@ export default function GeneratePage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Buat gambar dari teks. Tulis deskripsi apa yang kamu mau (misal: &quot;wanita duduk di cafe&quot;), AI akan generate gambar sesuai prompt. Bisa pilih model yang berbeda untuk style yang berbeda.
+        <br /><span className="text-[10px] mt-1 inline-block">⚠️ Leonardo AI tidak memproses konten NSFW/dewasa — gunakan Magnific untuk konten tersebut.</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -251,47 +229,6 @@ export default function GeneratePage() {
             maxLength={2000}
             placeholder="A beautiful sunset over the ocean with dramatic clouds..."
           />
-
-          {/* Auto-translate toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
-            <div className="flex items-center gap-2">
-              <Languages className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Auto-translate to English</p>
-                <p className="text-xs text-muted-foreground">
-                  AI models work best with English prompts
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setAutoTranslate(!autoTranslate)}
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                autoTranslate ? "bg-primary" : "bg-muted"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  autoTranslate ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Non-English detection indicator */}
-          {isNonEnglish && autoTranslate && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Languages className="w-3 h-3" />
-              Non-English detected — will auto-translate before generating
-            </p>
-          )}
-
-          {/* Show translated prompt if available */}
-          {translatedPrompt && (
-            <div className="p-3 rounded-lg bg-accent/50 border border-border">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Translated prompt used:</p>
-              <p className="text-sm">{translatedPrompt}</p>
-            </div>
-          )}
 
           {/* Model-specific controls */}
           {model.provider === "magnific" && model.supports?.creativity && (
@@ -357,7 +294,7 @@ export default function GeneratePage() {
               !prompt.trim() ||
               isSubmitting ||
               status === "PROCESSING" ||
-              isExhausted(model.rateKey)
+              (model.provider === "magnific" && isExhausted(model.rateKey))
             }
             className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -371,7 +308,7 @@ export default function GeneratePage() {
             )}
           </button>
 
-          {isExhausted(model.rateKey) && (
+          {model.provider === "magnific" && isExhausted(model.rateKey) && (
             <p className="text-sm text-destructive">
               Daily quota exhausted for {model.name}. Resets at UTC midnight.
             </p>

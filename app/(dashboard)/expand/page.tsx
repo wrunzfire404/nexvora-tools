@@ -102,6 +102,7 @@ export default function ExpandPage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Perluas gambar ke arah mana pun (atas, bawah, kiri, kanan). AI akan &quot;melanjutkan&quot; gambar di area yang diperluas. Cocok buat foto yang terlalu sempit/crop, mau dijadiin wallpaper, atau butuh ruang lebih untuk desain.
+        <br /><span className="text-[10px] mt-1 inline-block">🟣 Fitur ini hanya tersedia dengan Magnific API key.</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

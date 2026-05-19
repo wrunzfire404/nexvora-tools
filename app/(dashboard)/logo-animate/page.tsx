@@ -68,7 +68,6 @@ const LOGO_STYLES = [
 const LEONARDO_VIDEO_MODELS = [
   { id: "kling-3.0", name: "Kling 3.0", description: "Best quality" },
   { id: "kling-2.6", name: "Kling 2.6", description: "Fast & reliable" },
-  { id: "veo-3.0", name: "Veo 3.0", description: "Google" },
 ];
 
 export default function LogoAnimatePage() {

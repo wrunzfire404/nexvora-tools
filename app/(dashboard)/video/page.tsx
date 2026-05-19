@@ -13,7 +13,6 @@ import { PromptInput } from "@/components/shared/prompt-input";
 import { DownloadButton } from "@/components/shared/download-button";
 import { TaskStatusBadge } from "@/components/shared/task-status";
 import { POLL_INTERVALS, POLL_TIMEOUTS } from "@/lib/constants";
-import { isLikelyNonEnglish, translatePromptToEnglish } from "@/lib/translate";
 
 type Provider = "magnific" | "leonardo";
 
@@ -67,27 +66,6 @@ const VIDEO_MODELS: VideoModel[] = [
     description: "Leonardo — Reliable",
     provider: "leonardo",
     leonardoModel: "kling-2.6",
-  },
-  {
-    id: "leonardo-veo-3",
-    name: "⭐ Veo 3.0",
-    description: "Leonardo — Google's best video",
-    provider: "leonardo",
-    leonardoModel: "veo-3.0",
-  },
-  {
-    id: "leonardo-hailuo",
-    name: "Hailuo 2.3",
-    description: "Leonardo — MiniMax video",
-    provider: "leonardo",
-    leonardoModel: "hailuo-2.3",
-  },
-  {
-    id: "leonardo-seedance",
-    name: "Seedance 2.0",
-    description: "Leonardo — ByteDance video",
-    provider: "leonardo",
-    leonardoModel: "seedance-2.0",
   },
 ];
 
@@ -149,14 +127,8 @@ export default function VideoPage() {
     setIsSubmitting(true); setStatus("PENDING"); setResultUrl(null); setError(null);
 
     try {
-      // Auto-translate
+      // Use prompt as-is (no auto-translate to save credits)
       let finalPrompt = prompt.trim();
-      if (finalPrompt && isLikelyNonEnglish(finalPrompt)) {
-        if (apiKey) {
-          const { translated } = await translatePromptToEnglish(finalPrompt, apiKey);
-          finalPrompt = translated;
-        }
-      }
       if (finalPrompt) {
         finalPrompt = `High quality video, smooth motion, professional. ${finalPrompt}`;
       }
@@ -196,7 +168,23 @@ export default function VideoPage() {
         // Leonardo flow
         const imageUrl = await uploadFile(selectedImage);
 
-        const body = {
+      // Leonardo flow — need to upload image first to get image ID
+        const { leonardoUploadImage } = await import("@/lib/leonardo-client");
+
+        // Upload image to Leonardo platform
+        let guidances: Record<string, unknown> | undefined;
+        if (selectedImage) {
+          const uploadResult = await leonardoUploadImage(leonardoKey, selectedImage);
+          if (uploadResult.ok && uploadResult.imageId) {
+            guidances = {
+              start_frame: [{
+                image: { id: uploadResult.imageId, type: "UPLOADED" }
+              }]
+            };
+          }
+        }
+
+        const body: Record<string, unknown> = {
           model: model.leonardoModel,
           public: false,
           parameters: {
@@ -206,6 +194,7 @@ export default function VideoPage() {
             height: 1920,
             mode: "RESOLUTION_1080",
             motion_has_audio: false,
+            ...(guidances ? { guidances } : {}),
           },
         };
 
@@ -218,7 +207,7 @@ export default function VideoPage() {
         const data = await response.json();
         if (!response.ok) { setError(data.error || "Leonardo API error"); setStatus("FAILED"); setIsSubmitting(false); return; }
 
-        const generationId = data?.generations_by_pk?.id || data?.sdGenerationJob?.generationId || data?.id;
+        const generationId = data?.generate?.generationId || data?.generations_by_pk?.id || data?.sdGenerationJob?.generationId || data?.id;
         if (!generationId) { setError("No generation ID returned"); setStatus("FAILED"); setIsSubmitting(false); return; }
 
         setStatus("PROCESSING"); setIsSubmitting(false);
@@ -267,6 +256,7 @@ export default function VideoPage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Upload foto (produk, orang, pemandangan, apapun) dan AI akan bikin video dari foto tersebut. Cocok buat animate foto produk, bikin content social media, atau preview animasi.
+        <br /><span className="text-[10px] mt-1 inline-block">⚠️ Leonardo AI tidak memproses konten NSFW/dewasa dan bisa stuck tanpa error. Gunakan Magnific untuk konten tersebut.</span>
       </div>
 
       {!apiKey && (

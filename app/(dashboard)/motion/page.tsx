@@ -215,6 +215,7 @@ export default function MotionPage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Bikin video dari foto + video referensi gerakan. Upload foto (subjek) dan video (gerakan yang mau ditiru), AI akan bikin video dimana subjek di foto bergerak mengikuti gerakan di video referensi. Cocok buat animasi karakter, content creation.
+        <br /><span className="text-[10px] mt-1 inline-block">🟣 Fitur ini hanya tersedia dengan Magnific API key.</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

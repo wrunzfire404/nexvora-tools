@@ -34,6 +34,7 @@ export async function leonardoGenerate(
 
   // Leonardo returns generation ID in various formats
   const generationId =
+    data?.generate?.generationId ||
     data?.sdGenerationJob?.generationId ||
     data?.generations_by_pk?.id ||
     data?.generationId ||
@@ -58,7 +59,7 @@ export async function leonardoPoll(
     onStatusChange?: (status: string) => void;
   } = {}
 ): Promise<LeonardoGenerationResult> {
-  const { interval = 4000, timeout = 300000, onStatusChange } = options;
+  const { interval = 5000, timeout = 900000, onStatusChange } = options;
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
@@ -80,7 +81,7 @@ export async function leonardoPoll(
       // Extract result URL
       const images = gen?.generated_images || [];
       const imageUrl = images[0]?.url;
-      const videoUrl = gen?.motion_mp4_url || images[0]?.motionMP4URL;
+      const videoUrl = gen?.motion_mp4_url || images[0]?.motionMP4URL || images[0]?.url;
 
       return {
         generationId,
@@ -104,4 +105,30 @@ export async function leonardoPoll(
 export function getLeonardoKey(): string {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("nexvora-leonardo-key") || "";
+}
+
+
+/**
+ * Upload image to Leonardo AI and get image ID for use in generations
+ */
+export async function leonardoUploadImage(
+  apiKey: string,
+  file: File
+): Promise<{ ok: boolean; imageId?: string; error?: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch("/api/leonardo/upload", {
+    method: "POST",
+    headers: { "x-leonardo-key": apiKey },
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.imageId) {
+    return { ok: false, error: data.error || "Upload failed" };
+  }
+
+  return { ok: true, imageId: data.imageId };
 }

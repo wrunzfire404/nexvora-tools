@@ -69,7 +69,6 @@ const PRODUCT_STYLES = [
 const LEONARDO_VIDEO_MODELS = [
   { id: "kling-3.0", name: "Kling 3.0", description: "Best quality" },
   { id: "kling-2.6", name: "Kling 2.6", description: "Fast & reliable" },
-  { id: "veo-3.0", name: "Veo 3.0", description: "Google" },
 ];
 
 export default function ProductVideoPage() {
@@ -357,6 +356,7 @@ export default function ProductVideoPage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Upload foto produk, pilih style video (hero reveal, 360° showcase, floating, dll), dan AI akan bikin video iklan produk yang profesional. Prompt sudah di-optimize biar hasilnya cinematic dan eye-catching.
+        <br /><span className="text-[10px] mt-1 inline-block">⚠️ Leonardo AI tidak memproses konten NSFW/dewasa. Gunakan Magnific untuk konten tersebut.</span>
       </div>
 
       {!apiKey && provider === "magnific" && (

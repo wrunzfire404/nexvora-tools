@@ -53,9 +53,11 @@ const THUMBNAIL_STYLES = [
 ];
 
 const LEONARDO_IMAGE_MODELS = [
-  { id: "flux-2-pro", name: "FLUX.2 Pro", description: "High quality" },
+  { id: "flux-pro-2.0", name: "FLUX.2 Pro", description: "High quality" },
+  { id: "nano-banana-2", name: "Nano Banana 2", description: "Fast, sharp" },
+  { id: "seedream-4.5", name: "Seedream 4.5", description: "Great for text/logos" },
   { id: "phoenix-1.0", name: "Phoenix", description: "Fast & versatile" },
-  { id: "ideogram-3.0", name: "Ideogram 3.0", description: "Great for text in images" },
+  { id: "ideogram-3.0", name: "Ideogram 3.0", description: "Best for text in images" },
 ];
 
 export default function ThumbnailPage() {
@@ -107,9 +109,9 @@ export default function ThumbnailPage() {
       public: false,
       parameters: {
         prompt,
-        width: 1920,
-        height: 1080,
-        mode: "RESOLUTION_1080",
+        quantity: 1,
+        width: 1440,
+        height: 810,
       },
     };
 

@@ -99,6 +99,7 @@ export default function RelightPage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Ubah pencahayaan foto tanpa edit manual. Bisa bikin foto jadi golden hour, neon, studio lighting, dll. Cocok buat foto produk yang kurang cahaya, atau mau ganti mood/suasana foto.
+        <br /><span className="text-[10px] mt-1 inline-block">🟣 Fitur ini hanya tersedia dengan Magnific API key.</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

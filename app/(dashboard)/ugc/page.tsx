@@ -211,6 +211,7 @@ export default function UGCPage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Bikin video UGC (User Generated Content) profesional untuk iklan/sosmed. Upload foto model + video referensi gerakan → AI bikin video seolah model di foto sedang bergerak/ngomong. Pilih style sesuai kebutuhan (talking head, product showcase, dance, dll). Prompt otomatis di-optimize biar hasilnya bagus.
+        <br /><span className="text-[10px] mt-1 inline-block">🟣 Fitur ini hanya tersedia dengan Magnific API key. Gunakan foto orang (bukan produk).</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

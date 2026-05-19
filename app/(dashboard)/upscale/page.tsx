@@ -152,6 +152,7 @@ export default function UpscalePage() {
 
       <div className="mb-6 p-3 rounded-lg bg-accent/30 border border-border text-sm text-muted-foreground">
         💡 <strong>Apa ini?</strong> Naikin resolusi gambar yang blur/pecah jadi lebih tajam dan jernih. Cocok buat foto lama, screenshot, atau gambar kecil yang mau diperbesar tanpa pecah. Mode <em>Precision</em> = persis sama cuma lebih tajam. Mode <em>Creative</em> = AI tambah detail baru (bisa ubah sedikit).
+        <br /><span className="text-[10px] mt-1 inline-block">🟣 Fitur ini hanya tersedia dengan Magnific API key.</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -52,7 +52,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Generation ID required" }, { status: 400 });
     }
 
-    const response = await fetch(`${LEONARDO_BASE_URL}/${generationId}`, {
+    // Poll uses v1 endpoint, not v2
+    const response = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
       headers: {
         "accept": "application/json",
         "authorization": `Bearer ${apiKey}`,
