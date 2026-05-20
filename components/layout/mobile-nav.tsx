@@ -83,9 +83,11 @@ export function MobileNav() {
 
                 if (isComingSoon) {
                   return (
-                    <div
+                    <Link
                       key={item.href}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed min-h-[44px]"
+                      href="/coming-soon"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-muted-foreground/50 hover:text-muted-foreground min-h-[44px]"
                     >
                       {Icon && <Icon className="w-5 h-5 shrink-0" />}
                       <div>
@@ -94,7 +96,7 @@ export function MobileNav() {
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Soon</span>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   );
                 }
 

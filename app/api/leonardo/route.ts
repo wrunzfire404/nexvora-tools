@@ -87,6 +87,17 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
+    // Log when COMPLETE to see video URL structure
+    if (data?.generations_by_pk?.status === "COMPLETE") {
+      const gen = data.generations_by_pk;
+      console.log("[Leonardo POLL COMPLETE]", JSON.stringify({
+        status: gen.status,
+        motion: gen.motion,
+        generated_images: gen.generated_images?.map((img: Record<string, unknown>) => ({ url: img.url, motionMP4URL: img.motionMP4URL })),
+        motion_mp4_url: gen.motion_mp4_url,
+      }));
+    }
+
     if (!response.ok) {
       return NextResponse.json(
         { error: data?.error || `Leonardo API error: ${response.status}` },
