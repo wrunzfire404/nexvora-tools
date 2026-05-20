@@ -107,13 +107,13 @@ export function Sidebar() {
       <div className="p-4 border-t border-border space-y-3">
         {/* Donate */}
         <a
-          href="https://saweria.co/nexvora"
+          href="https://saweria.co/wrunzfire"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-colors"
         >
           <span className="text-sm">☕</span>
-          <span className="text-[11px] text-amber-400 font-medium">Support Nexvora</span>
+          <span className="text-[11px] text-amber-400 font-medium">Traktir Kopi</span>
         </a>
 
         {/* Social */}
