@@ -17,6 +17,21 @@ function getRedis(): Redis | null {
   return redis;
 }
 
+// ============ PROXY SETTINGS ============
+
+export async function getProxyEnabled(): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return true; // default enabled if no Redis
+  const enabled = await r.get<boolean>("nexvora:proxy-enabled");
+  return enabled !== false; // default true
+}
+
+export async function setProxyEnabled(enabled: boolean): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.set("nexvora:proxy-enabled", enabled);
+}
+
 // ============ PROXY MANAGEMENT ============
 
 export async function getProxies(): Promise<string[]> {

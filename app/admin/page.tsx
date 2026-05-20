@@ -7,6 +7,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [isAuthed, setIsAuthed] = useState(false);
   const [proxies, setProxies] = useState<string[]>([]);
+  const [proxyEnabled, setProxyEnabled] = useState(true);
   const [announcements, setAnnouncements] = useState<Array<{ id: string; message: string; type: string; active: boolean; createdAt: string }>>([]);
   const [logs, setLogs] = useState<Array<{ id: string; timestamp: string; provider: string; feature: string; model?: string; proxyUsed: string | null; status: string; latency: number; error?: string }>>([]);
   const [counters, setCounters] = useState<Record<string, number>>({});
@@ -35,6 +36,7 @@ export default function AdminPage() {
       const logData = await logRes.json();
 
       setProxies(proxyData.proxies || []);
+      setProxyEnabled(proxyData.enabled !== false);
       setAnnouncements(annData.announcements || []);
       setLogs(logData.logs || []);
       setCounters(logData.counters || {});
@@ -144,6 +146,23 @@ export default function AdminPage() {
         {/* Proxy Management */}
         <div className="p-5 rounded-xl border border-border bg-card space-y-4">
           <h2 className="text-sm font-bold flex items-center gap-2"><Shield className="w-4 h-4" /> Proxy Management ({proxies.length})</h2>
+
+          <div className="flex items-center justify-between p-3 rounded-lg bg-accent/30">
+            <div>
+              <p className="text-xs font-medium">Proxy {proxyEnabled ? "Active" : "Disabled"}</p>
+              <p className="text-[10px] text-muted-foreground">{proxyEnabled ? "Request lewat proxy" : "Request langsung (direct)"}</p>
+            </div>
+            <button
+              onClick={async () => {
+                const newState = !proxyEnabled;
+                await fetch("/api/admin/proxies", { method: "POST", headers, body: JSON.stringify({ enabled: newState }) });
+                setProxyEnabled(newState);
+              }}
+              className={`relative w-10 h-5 rounded-full transition-colors ${proxyEnabled ? "bg-green-500" : "bg-muted"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${proxyEnabled ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
 
           {proxies.length > 0 && (
             <button onClick={deleteAllProxies} className="px-3 py-1.5 rounded-lg border border-destructive/30 text-destructive text-xs hover:bg-destructive/10">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProxies, setProxies, addProxy, removeProxy } from "@/lib/db";
+import { getProxies, setProxies, addProxy, removeProxy, getProxyEnabled, setProxyEnabled } from "@/lib/db";
 import { invalidateProxyCache } from "@/lib/proxy-pool";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "reza1254";
@@ -9,14 +9,14 @@ function checkAuth(request: NextRequest): boolean {
   return auth === ADMIN_PASSWORD;
 }
 
-// GET — list all proxies
+// GET — list all proxies + enabled status
 export async function GET(request: NextRequest) {
   if (!checkAuth(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const proxies = await getProxies();
-  return NextResponse.json({ proxies, count: proxies.length });
+  const [proxies, enabled] = await Promise.all([getProxies(), getProxyEnabled()]);
+  return NextResponse.json({ proxies, count: proxies.length, enabled });
 }
 
 // POST — add proxy or bulk import
@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
+
+  // Toggle proxy on/off
+  if (typeof body.enabled === "boolean") {
+    await setProxyEnabled(body.enabled);
+    return NextResponse.json({ success: true, enabled: body.enabled });
+  }
 
   if (body.bulk && Array.isArray(body.proxies)) {
     // Bulk import

@@ -36,8 +36,16 @@ export async function refreshProxyCache(): Promise<string[]> {
 /**
  * Get next proxy URL (round-robin rotation) — ASYNC version
  * Must be awaited to ensure Redis is loaded
+ * Returns undefined if proxy disabled or no proxies
  */
 export async function getNextProxyAsync(): Promise<string | undefined> {
+  // Check if proxy is enabled
+  try {
+    const { getProxyEnabled } = await import("./db");
+    const enabled = await getProxyEnabled();
+    if (!enabled) return undefined;
+  } catch {}
+
   // Force refresh if cache empty or expired
   if (!cachedProxies || cachedProxies.length === 0 || Date.now() - cacheTime > CACHE_TTL) {
     await refreshProxyCache();
