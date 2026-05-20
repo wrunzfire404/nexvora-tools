@@ -65,7 +65,9 @@ async function handleProxy(
     }
 
     // Get outbound proxy (await to ensure Redis is loaded)
-    const proxyUrl = await getNextProxyAsync();
+    // Priority: user proxy > admin proxy pool
+    const userProxy = request.headers.get("x-user-proxy") || undefined;
+    const proxyUrl = userProxy || await getNextProxyAsync();
 
     const startTime = Date.now();
     const { response, proxyUsed } = await proxyFetch(targetUrl, {

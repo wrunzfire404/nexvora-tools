@@ -9,19 +9,22 @@ export function Header() {
   const [showModal, setShowModal] = useState(false);
   const [magnificKey, setMagnificKey] = useState("");
   const [leonardoKey, setLeonardoKey] = useState("");
+  const [userProxy, setUserProxy] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
       setLeonardoKey(localStorage.getItem("nexvora-leonardo-key") || "");
+      setUserProxy(localStorage.getItem("nexvora-user-proxy") || "");
     }
   }, []);
 
   const handleSave = () => {
     if (magnificKey.trim()) setApiKey(magnificKey.trim());
-    if (leonardoKey.trim() && typeof window !== "undefined") {
-      localStorage.setItem("nexvora-leonardo-key", leonardoKey.trim());
+    if (typeof window !== "undefined") {
+      if (leonardoKey.trim()) localStorage.setItem("nexvora-leonardo-key", leonardoKey.trim());
+      localStorage.setItem("nexvora-user-proxy", userProxy.trim());
     }
     setShowModal(false);
   };
@@ -30,6 +33,7 @@ export function Header() {
     setMagnificKey(apiKey || "");
     if (typeof window !== "undefined") {
       setLeonardoKey(localStorage.getItem("nexvora-leonardo-key") || "");
+      setUserProxy(localStorage.getItem("nexvora-user-proxy") || "");
     }
     setShowModal(true);
   };
@@ -99,6 +103,24 @@ export function Header() {
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
                   Untuk: Video Gen (Kling 3.0, Veo 3), Image Gen (Flux, GPT Image)
+                </p>
+              </div>
+
+              {/* User Proxy */}
+              <div>
+                <label className="text-sm font-medium mb-1 block flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Proxy (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={userProxy}
+                  onChange={(e) => setUserProxy(e.target.value)}
+                  placeholder="http://user:pass@ip:port (kosongkan jika tidak punya)"
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Opsional — mengurangi risiko IP block. Tanpa proxy kadang bisa kena block sementara.
                 </p>
               </div>
 

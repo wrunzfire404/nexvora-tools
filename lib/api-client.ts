@@ -29,10 +29,17 @@ export async function apiRequest<T = unknown>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  // Get user proxy from localStorage if available
+  const userProxy = typeof window !== "undefined" ? localStorage.getItem("nexvora-user-proxy") || "" : "";
+
   try {
     const headers: Record<string, string> = {
       "x-api-key": apiKey,
     };
+
+    if (userProxy) {
+      headers["x-user-proxy"] = userProxy;
+    }
 
     let fetchBody: string | FormData | undefined;
 
