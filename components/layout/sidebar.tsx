@@ -73,7 +73,7 @@ export function Sidebar() {
             if (isComingSoon) {
               return (
                 <Link
-                  key={item.href}
+                  key={item.title}
                   href="/coming-soon"
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/30 transition-colors"
                 >

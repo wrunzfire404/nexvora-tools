@@ -84,7 +84,7 @@ export function MobileNav() {
                 if (isComingSoon) {
                   return (
                     <Link
-                      key={item.href}
+                      key={item.title}
                       href="/coming-soon"
                       onClick={() => setIsOpen(false)}
                       className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-muted-foreground/50 hover:text-muted-foreground min-h-[44px]"

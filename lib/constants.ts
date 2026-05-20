@@ -151,10 +151,9 @@ export const NAV_ITEMS = [
   },
   {
     title: "Task Queue",
-    href: "/coming-soon",
+    href: "/tasks",
     icon: "ListTodo",
-    description: "Coming Soon",
-    comingSoon: true,
+    description: "Track active tasks",
   },
   {
     title: "History",
