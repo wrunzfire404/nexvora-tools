@@ -83,7 +83,51 @@ export async function getActiveAnnouncements(): Promise<Announcement[]> {
   return announcements.filter((a) => a.active);
 }
 
-// ============ SYSTEM STATUS ============
+// ============ REQUEST LOGGING ============
+
+export interface RequestLog {
+  id: string;
+  timestamp: string;
+  provider: "magnific" | "leonardo";
+  feature: string;
+  model?: string;
+  proxyUsed: string | null;
+  status: "success" | "failed";
+  latency: number;
+  error?: string;
+}
+
+export async function logRequest(log: RequestLog): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+
+  // Store in a list, keep max 200 entries
+  const logs = await r.get<RequestLog[]>("nexvora:request-logs") || [];
+  logs.unshift(log);
+  if (logs.length > 200) logs.length = 200;
+  await r.set("nexvora:request-logs", logs);
+
+  // Increment counters
+  const today = new Date().toISOString().slice(0, 10);
+  const counterKey = `nexvora:counter:${today}`;
+  const counters = await r.get<Record<string, number>>(counterKey) || {};
+  counters[log.feature] = (counters[log.feature] || 0) + 1;
+  counters["total"] = (counters["total"] || 0) + 1;
+  await r.set(counterKey, counters, { ex: 86400 * 7 }); // expire after 7 days
+}
+
+export async function getRequestLogs(): Promise<RequestLog[]> {
+  const r = getRedis();
+  if (!r) return [];
+  return await r.get<RequestLog[]>("nexvora:request-logs") || [];
+}
+
+export async function getTodayCounters(): Promise<Record<string, number>> {
+  const r = getRedis();
+  if (!r) return {};
+  const today = new Date().toISOString().slice(0, 10);
+  return await r.get<Record<string, number>>(`nexvora:counter:${today}`) || {};
+}
 
 export interface SystemStatus {
   magnific: "up" | "down" | "unknown";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNextProxy } from "@/lib/proxy-pool";
 import { proxyFetch } from "@/lib/proxy-fetch";
+import { logRequest } from "@/lib/db";
 
 const LEONARDO_BASE_URL = "https://cloud.leonardo.ai/api/rest/v2/generations";
 
@@ -14,6 +15,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.text();
     const proxyUrl = getNextProxy();
+    const startTime = Date.now();
 
     const response = await proxyFetch(LEONARDO_BASE_URL, {
       method: "POST",
@@ -27,6 +29,23 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+
+    // Parse model from body for logging
+    let model = "unknown";
+    try { model = JSON.parse(body)?.model || "unknown"; } catch {}
+
+    // Log request (non-blocking)
+    logRequest({
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      provider: "leonardo",
+      feature: data?.generate ? "image-generation" : "video-generation",
+      model,
+      proxyUsed: (response as Response & { __proxyUsed?: string | null }).__proxyUsed || null,
+      status: response.ok ? "success" : "failed",
+      latency: Date.now() - startTime,
+      error: !response.ok ? `HTTP ${response.status}` : undefined,
+    }).catch(() => {});
 
     if (!response.ok) {
       return NextResponse.json(

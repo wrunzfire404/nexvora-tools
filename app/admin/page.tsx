@@ -8,6 +8,8 @@ export default function AdminPage() {
   const [isAuthed, setIsAuthed] = useState(false);
   const [proxies, setProxies] = useState<string[]>([]);
   const [announcements, setAnnouncements] = useState<Array<{ id: string; message: string; type: string; active: boolean; createdAt: string }>>([]);
+  const [logs, setLogs] = useState<Array<{ id: string; timestamp: string; provider: string; feature: string; model?: string; proxyUsed: string | null; status: string; latency: number; error?: string }>>([]);
+  const [counters, setCounters] = useState<Record<string, number>>({});
   const [newProxy, setNewProxy] = useState("");
   const [bulkProxies, setBulkProxies] = useState("");
   const [newAnnouncement, setNewAnnouncement] = useState("");
@@ -20,18 +22,22 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [proxyRes, annRes] = await Promise.all([
+      const [proxyRes, annRes, logRes] = await Promise.all([
         fetch("/api/admin/proxies", { headers }),
         fetch("/api/admin/announcements", { headers }),
+        fetch("/api/admin/logs", { headers }),
       ]);
 
       if (proxyRes.status === 401) { setIsAuthed(false); setLoading(false); return; }
 
       const proxyData = await proxyRes.json();
       const annData = await annRes.json();
+      const logData = await logRes.json();
 
       setProxies(proxyData.proxies || []);
       setAnnouncements(annData.announcements || []);
+      setLogs(logData.logs || []);
+      setCounters(logData.counters || {});
       setIsAuthed(true);
     } catch {
       setMessage("Failed to load data");
@@ -215,6 +221,45 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Request Logs & Stats */}
+        <div className="p-5 rounded-xl border border-border bg-card space-y-4">
+          <h2 className="text-sm font-bold">📊 Today&apos;s Stats</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-accent/30 text-center">
+              <p className="text-lg font-bold">{counters.total || 0}</p>
+              <p className="text-[10px] text-muted-foreground">Total Requests</p>
+            </div>
+            {Object.entries(counters).filter(([k]) => k !== "total").slice(0, 3).map(([key, val]) => (
+              <div key={key} className="p-3 rounded-lg bg-accent/30 text-center">
+                <p className="text-lg font-bold">{val}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{key.replace(/-/g, " ")}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5 rounded-xl border border-border bg-card space-y-4">
+          <h2 className="text-sm font-bold">📜 Request History (last {logs.length})</h2>
+          <div className="max-h-[300px] overflow-y-auto space-y-1">
+            {logs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No requests logged yet.</p>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-center gap-2 p-2 rounded-lg bg-accent/20 text-[10px]">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${log.status === "success" ? "bg-green-500" : "bg-red-500"}`} />
+                  <span className="text-muted-foreground w-[60px] shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                  <span className={`px-1.5 py-0.5 rounded ${log.provider === "leonardo" ? "bg-amber-500/20 text-amber-400" : "bg-purple-500/20 text-purple-400"}`}>{log.provider}</span>
+                  <span className="capitalize flex-1 truncate">{log.feature}{log.model ? ` (${log.model})` : ""}</span>
+                  <span className="text-muted-foreground">{log.latency}ms</span>
+                  <span className={`px-1 rounded ${log.proxyUsed ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"}`}>
+                    {log.proxyUsed ? "proxy" : "direct"}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

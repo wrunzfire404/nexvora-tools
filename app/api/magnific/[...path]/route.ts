@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNextProxy } from "@/lib/proxy-pool";
 import { proxyFetch } from "@/lib/proxy-fetch";
+import { logRequest } from "@/lib/db";
 
 const MAGNIFIC_BASE_URL = "https://api.freepik.com";
 
@@ -66,6 +67,7 @@ async function handleProxy(
     // Get outbound proxy
     const proxyUrl = getNextProxy();
 
+    const startTime = Date.now();
     const response = await proxyFetch(targetUrl, {
       method: request.method,
       headers,
@@ -79,6 +81,28 @@ async function handleProxy(
       responseData = JSON.parse(responseText);
     } catch {
       responseData = { raw: responseText };
+    }
+
+    // Log request (non-blocking)
+    const feature = path.includes("mystic") ? "image-generation" :
+      path.includes("image-to-video") ? "video-generation" :
+      path.includes("image-upscaler") ? "upscaler" :
+      path.includes("image-expand") ? "expand" :
+      path.includes("image-relight") ? "relight" :
+      path.includes("motion-control") ? "motion-control" :
+      "other";
+
+    if (request.method === "POST") {
+      logRequest({
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        provider: "magnific",
+        feature,
+        proxyUsed: (response as Response & { __proxyUsed?: string | null }).__proxyUsed || null,
+        status: response.status < 400 ? "success" : "failed",
+        latency: Date.now() - startTime,
+        error: response.status >= 400 ? `HTTP ${response.status}` : undefined,
+      }).catch(() => {});
     }
 
     return NextResponse.json(responseData ?? { error: "Empty response" }, {
