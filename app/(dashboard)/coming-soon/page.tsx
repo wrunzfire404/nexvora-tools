@@ -11,7 +11,7 @@ export default function ComingSoonPage() {
         Fitur ini sedang dalam pengembangan. Dapatkan update terbaru dan info rilis di komunitas Telegram kami.
       </p>
       <a
-        href="https://t.me/NexvoraTools"
+        href="https://t.me/NexvoraWebtools"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#0088cc] text-white text-sm font-medium hover:bg-[#0077b5] transition-colors"
@@ -22,8 +22,9 @@ export default function ComingSoonPage() {
         Join Telegram Community
       </a>
       <p className="text-xs text-muted-foreground mt-4">
-        @NexvoraTools — Info update, tips, dan diskusi
+        @NexvoraWebtools — Info update, tips, dan diskusi
       </p>
     </div>
   );
 }
+
