@@ -1,8 +1,7 @@
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { ProxyAgent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici";
 
 /**
- * Fetch through a proxy using undici (which actually supports proxies in fetch)
- * Native Node fetch does NOT support agent/proxy — this is the proper way.
+ * Fetch through a proxy using undici ProxyAgent
  */
 export async function proxyFetch(
   url: string,
@@ -11,25 +10,40 @@ export async function proxyFetch(
   const { proxy, ...fetchOptions } = options;
 
   if (!proxy) {
-    // No proxy — direct fetch
     return fetch(url, fetchOptions);
   }
 
-  // Parse proxy URL to get auth
-  const proxyUrl = new URL(proxy.startsWith("http") ? proxy : `http://${proxy}`);
-  
+  // Parse proxy - format: http://user:pass@host:port or user:pass@host:port
+  let proxyUri: string;
+  let proxyAuth: string | undefined;
+
+  try {
+    const fullProxy = proxy.startsWith("http") ? proxy : `http://${proxy}`;
+    const parsed = new URL(fullProxy);
+    proxyUri = `http://${parsed.hostname}:${parsed.port}`;
+
+    if (parsed.username && parsed.password) {
+      proxyAuth = `Basic ${Buffer.from(`${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`).toString("base64")}`;
+    }
+  } catch {
+    proxyUri = proxy.startsWith("http") ? proxy : `http://${proxy}`;
+  }
+
   const dispatcher = new ProxyAgent({
-    uri: `${proxyUrl.protocol}//${proxyUrl.hostname}:${proxyUrl.port}`,
-    token: proxyUrl.username && proxyUrl.password
-      ? `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString("base64")}`
-      : undefined,
+    uri: proxyUri,
+    token: proxyAuth,
   });
 
-  const response = await undiciFetch(url, {
-    ...fetchOptions,
-    dispatcher,
-  } as Parameters<typeof undiciFetch>[1]);
+  try {
+    const response = await undiciFetch(url, {
+      ...(fetchOptions as UndiciRequestInit),
+      dispatcher,
+    });
 
-  // Convert undici Response to standard Response
-  return response as unknown as Response;
+    return response as unknown as Response;
+  } catch (err) {
+    // If proxy fails, fallback to direct connection
+    console.warn(`Proxy failed (${proxyUri}), using direct connection:`, (err as Error).message);
+    return fetch(url, fetchOptions);
+  }
 }
