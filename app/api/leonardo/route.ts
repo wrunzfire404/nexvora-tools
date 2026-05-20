@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
+    console.log("[Leonardo POST] Response:", JSON.stringify(data).slice(0, 500));
+
     // Parse model from body for logging
     let model = "unknown";
     try { model = JSON.parse(body)?.model || "unknown"; } catch {}

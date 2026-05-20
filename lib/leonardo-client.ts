@@ -78,10 +78,10 @@ export async function leonardoPoll(
     if (status) onStatusChange?.(status);
 
     if (status === "COMPLETE") {
-      // Extract result URL
+      // Extract result URL — video can be in multiple fields
       const images = gen?.generated_images || [];
       const imageUrl = images[0]?.url;
-      const videoUrl = gen?.motion_mp4_url || images[0]?.motionMP4URL || images[0]?.url;
+      const videoUrl = gen?.motion_mp4_url || gen?.motionMP4URL || images[0]?.motionMP4URL || images[0]?.motion_mp4_url || images[0]?.url;
 
       return {
         generationId,

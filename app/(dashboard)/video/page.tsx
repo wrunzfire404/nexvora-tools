@@ -67,6 +67,41 @@ const VIDEO_MODELS: VideoModel[] = [
     provider: "leonardo",
     leonardoModel: "kling-2.6",
   },
+  {
+    id: "leonardo-kling-2-5-turbo",
+    name: "Kling 2.5 Turbo",
+    description: "Leonardo — Fast",
+    provider: "leonardo",
+    leonardoModel: "kling-2.5-turbo",
+  },
+  {
+    id: "leonardo-kling-o1",
+    name: "Kling O1",
+    description: "Leonardo — Reasoning",
+    provider: "leonardo",
+    leonardoModel: "kling-o1",
+  },
+  {
+    id: "leonardo-hailuo",
+    name: "Hailuo 2.3",
+    description: "Leonardo — MiniMax",
+    provider: "leonardo",
+    leonardoModel: "hailuo-2.3",
+  },
+  {
+    id: "leonardo-seedance",
+    name: "Seedance 2.0",
+    description: "Leonardo — ByteDance",
+    provider: "leonardo",
+    leonardoModel: "seedance-2.0",
+  },
+  {
+    id: "leonardo-ltx",
+    name: "LTX 2.3",
+    description: "Leonardo — Lightricks",
+    provider: "leonardo",
+    leonardoModel: "ltx-2.3",
+  },
 ];
 
 export default function VideoPage() {
@@ -222,7 +257,7 @@ export default function VideoPage() {
             const pollData = await pollRes.json();
             const gen = pollData?.generations_by_pk || pollData;
             if (gen?.status === "COMPLETE") {
-              const videoUrl = gen?.generated_images?.[0]?.url || gen?.motion_mp4_url;
+              const videoUrl = gen?.generated_images?.[0]?.motionMP4URL || gen?.generated_images?.[0]?.url || gen?.motion_mp4_url || gen?.motionMP4URL;
               if (videoUrl) {
                 setResultUrl(videoUrl); setStatus("COMPLETED");
                 addItem({ id: crypto.randomUUID(), taskType: "video-generation", resultUrl: videoUrl, resultType: "video", params: { prompt: finalPrompt, model: model.leonardoModel }, createdAt: new Date().toISOString() });
