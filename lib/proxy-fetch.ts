@@ -3,6 +3,9 @@ import { ProxyAgent, fetch as undiciFetch, type RequestInit as UndiciRequestInit
 /**
  * Fetch through a proxy using undici ProxyAgent
  * Returns { response, proxyUsed }
+ * 
+ * If proxy fails: throws error (does NOT fallback to direct)
+ * Use regular fetch() for direct connections
  */
 export async function proxyFetch(
   url: string,
@@ -36,16 +39,11 @@ export async function proxyFetch(
     token: proxyAuth,
   });
 
-  try {
-    const response = await undiciFetch(url, {
-      ...(fetchOptions as UndiciRequestInit),
-      dispatcher,
-    });
+  // DO NOT fallback — if proxy fails, throw error
+  const response = await undiciFetch(url, {
+    ...(fetchOptions as UndiciRequestInit),
+    dispatcher,
+  });
 
-    return { response: response as unknown as Response, proxyUsed: proxyUri };
-  } catch (err) {
-    console.warn(`Proxy failed (${proxyUri}), using direct connection:`, (err as Error).message);
-    const response = await fetch(url, fetchOptions);
-    return { response, proxyUsed: null };
-  }
+  return { response: response as unknown as Response, proxyUsed: proxyUri };
 }

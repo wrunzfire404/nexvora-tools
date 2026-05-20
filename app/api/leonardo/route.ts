@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNextProxy } from "@/lib/proxy-pool";
-import { proxyFetch } from "@/lib/proxy-fetch";
 import { logRequest } from "@/lib/db";
 
 const LEONARDO_BASE_URL = "https://cloud.leonardo.ai/api/rest/v2/generations";
@@ -14,10 +12,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.text();
-    const proxyUrl = getNextProxy();
     const startTime = Date.now();
 
-    const { response, proxyUsed } = await proxyFetch(LEONARDO_BASE_URL, {
+    // Leonardo: always direct (proxy HTTPS tunnel not supported)
+    const response = await fetch(LEONARDO_BASE_URL, {
       method: "POST",
       headers: {
         "accept": "application/json",
@@ -25,7 +23,6 @@ export async function POST(request: NextRequest) {
         "content-type": "application/json",
       },
       body,
-      proxy: proxyUrl,
     });
 
     const data = await response.json();
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
       provider: "leonardo",
       feature: data?.generate ? "image-generation" : "video-generation",
       model,
-      proxyUsed,
+      proxyUsed: null, // Leonardo always direct
       status: response.ok ? "success" : "failed",
       latency: Date.now() - startTime,
       error: !response.ok ? `HTTP ${response.status}` : undefined,
@@ -75,16 +72,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Generation ID required" }, { status: 400 });
     }
 
-    const proxyUrl = getNextProxy();
-
-    const { response } = await proxyFetch(
+    // Leonardo poll: always direct
+    const response = await fetch(
       `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
       {
         headers: {
           "accept": "application/json",
           "authorization": `Bearer ${apiKey}`,
         },
-        proxy: proxyUrl,
       }
     );
 

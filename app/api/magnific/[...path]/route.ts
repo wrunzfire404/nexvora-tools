@@ -116,6 +116,13 @@ async function handleProxy(
     });
   } catch (error) {
     console.error("Proxy error:", error);
+    const errMsg = (error as Error)?.message || "";
+    if (errMsg.includes("Proxy") || errMsg.includes("tunnel") || errMsg.includes("407")) {
+      return NextResponse.json(
+        { error: "Proxy connection failed. Request dibatalkan untuk melindungi IP. Coba lagi nanti atau hubungi admin." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to connect to Magnific API" },
       { status: 502 }
