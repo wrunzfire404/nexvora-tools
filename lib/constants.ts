@@ -54,8 +54,8 @@ export const RATE_LIMITS: Record<
 };
 
 export const POLL_INTERVALS = {
-  image: 3000, // 3 seconds
-  video: 5000, // 5 seconds
+  image: 5000, // 5 seconds
+  video: 10000, // 10 seconds (reduced to save API calls)
 } as const;
 
 export const POLL_TIMEOUTS = {
