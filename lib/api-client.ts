@@ -29,8 +29,15 @@ export async function apiRequest<T = unknown>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  // Get user proxy from localStorage if available
-  const userProxy = typeof window !== "undefined" ? localStorage.getItem("nexvora-user-proxy") || "" : "";
+  // Get user proxy from localStorage if available (supports multiple, picks random)
+  let userProxy = "";
+  if (typeof window !== "undefined") {
+    const proxyList = localStorage.getItem("nexvora-user-proxy") || "";
+    const proxies = proxyList.split("\n").map(p => p.trim()).filter(Boolean);
+    if (proxies.length > 0) {
+      userProxy = proxies[Math.floor(Math.random() * proxies.length)];
+    }
+  }
 
   try {
     const headers: Record<string, string> = {

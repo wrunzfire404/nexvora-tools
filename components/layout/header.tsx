@@ -112,15 +112,15 @@ export function Header() {
                   <span className="w-2 h-2 rounded-full bg-green-500" />
                   Proxy (Opsional)
                 </label>
-                <input
-                  type="text"
+                <textarea
                   value={userProxy}
                   onChange={(e) => setUserProxy(e.target.value)}
-                  placeholder="http://user:pass@ip:port (kosongkan jika tidak punya)"
-                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                  placeholder={"Satu atau lebih proxy (1 per line):\nhttp://user:pass@ip:port\nsocks5://user:pass@ip:port\nuser:pass@ip:port"}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground resize-none"
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Opsional — mengurangi risiko IP block. Tanpa proxy kadang bisa kena block sementara.
+                  Support HTTP &amp; SOCKS5. Bulk proxy (1 per baris) akan di-rotate otomatis. Kosongkan jika tidak punya.
                 </p>
               </div>
 
