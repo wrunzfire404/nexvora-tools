@@ -68,7 +68,7 @@ export default function HomePage() {
             margin: "0 0 12px",
           }}
         >
-          AI Creative Tools
+          AI Tools Gratis
         </h1>
         <p
           style={{
@@ -95,7 +95,7 @@ export default function HomePage() {
               cursor: "pointer",
             }}
           >
-            Get Started →
+            Mulai Sekarang →
           </button>
           <button
             onClick={() => window.open("https://www.magnific.com/api", "_blank")}
@@ -110,7 +110,7 @@ export default function HomePage() {
               cursor: "pointer",
             }}
           >
-            Get API Key
+            Dapatkan API Key
           </button>
         </div>
       </section>
@@ -118,7 +118,7 @@ export default function HomePage() {
       {/* Tools */}
       <section style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 64px" }}>
         <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16, fontWeight: 500 }}>
-          Available Tools
+          Fitur Tersedia
         </p>
         <div
           style={{
@@ -188,7 +188,7 @@ export default function HomePage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Mulai dalam 2 menit</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Cara Mulai</div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>
               Daftar gratis → copy API key → paste di Nexvora → selesai.
             </div>
@@ -232,3 +232,4 @@ export default function HomePage() {
     </div>
   );
 }
+

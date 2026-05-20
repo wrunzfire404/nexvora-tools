@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Header } from "@/components/layout/header";
 import { AnnouncementBanner } from "@/components/announcement-banner";
+import { WelcomeModal } from "@/components/welcome-modal";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
     <div className="min-h-screen">
       <Sidebar />
       <MobileNav />
+      <WelcomeModal />
 
       {/* Main content area */}
       <div className="md:pl-64">
