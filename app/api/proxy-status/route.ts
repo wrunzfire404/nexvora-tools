@@ -21,7 +21,7 @@ export async function GET() {
     proxies.map(async (proxy, index) => {
       const start = Date.now();
       try {
-        const response = await proxyFetch("https://httpbin.org/ip", {
+        const { response } = await proxyFetch("https://httpbin.org/ip", {
           proxy,
           signal: AbortSignal.timeout(10000),
         });

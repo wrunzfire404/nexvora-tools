@@ -68,7 +68,7 @@ async function handleProxy(
     const proxyUrl = getNextProxy();
 
     const startTime = Date.now();
-    const response = await proxyFetch(targetUrl, {
+    const { response, proxyUsed } = await proxyFetch(targetUrl, {
       method: request.method,
       headers,
       body,
@@ -98,7 +98,7 @@ async function handleProxy(
         timestamp: new Date().toISOString(),
         provider: "magnific",
         feature,
-        proxyUsed: (response as Response & { __proxyUsed?: string | null }).__proxyUsed || null,
+        proxyUsed,
         status: response.status < 400 ? "success" : "failed",
         latency: Date.now() - startTime,
         error: response.status >= 400 ? `HTTP ${response.status}` : undefined,

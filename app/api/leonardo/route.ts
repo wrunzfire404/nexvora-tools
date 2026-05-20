@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const proxyUrl = getNextProxy();
     const startTime = Date.now();
 
-    const response = await proxyFetch(LEONARDO_BASE_URL, {
+    const { response, proxyUsed } = await proxyFetch(LEONARDO_BASE_URL, {
       method: "POST",
       headers: {
         "accept": "application/json",
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       provider: "leonardo",
       feature: data?.generate ? "image-generation" : "video-generation",
       model,
-      proxyUsed: (response as Response & { __proxyUsed?: string | null }).__proxyUsed || null,
+      proxyUsed,
       status: response.ok ? "success" : "failed",
       latency: Date.now() - startTime,
       error: !response.ok ? `HTTP ${response.status}` : undefined,
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     const proxyUrl = getNextProxy();
 
-    const response = await proxyFetch(
+    const { response } = await proxyFetch(
       `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
       {
         headers: {

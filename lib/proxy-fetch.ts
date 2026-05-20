@@ -2,17 +2,17 @@ import { ProxyAgent, fetch as undiciFetch, type RequestInit as UndiciRequestInit
 
 /**
  * Fetch through a proxy using undici ProxyAgent
- * Returns response + info about proxy used
+ * Returns { response, proxyUsed }
  */
 export async function proxyFetch(
   url: string,
   options: RequestInit & { proxy?: string } = {}
-): Promise<Response & { __proxyUsed?: string | null }> {
+): Promise<{ response: Response; proxyUsed: string | null }> {
   const { proxy, ...fetchOptions } = options;
 
   if (!proxy) {
-    const res = fetch(url, fetchOptions) as Promise<Response & { __proxyUsed?: string | null }>;
-    return res.then(r => { (r as Response & { __proxyUsed?: string | null }).__proxyUsed = null; return r; });
+    const response = await fetch(url, fetchOptions);
+    return { response, proxyUsed: null };
   }
 
   // Parse proxy - format: http://user:pass@host:port or user:pass@host:port
@@ -42,14 +42,10 @@ export async function proxyFetch(
       dispatcher,
     });
 
-    const res = response as unknown as Response & { __proxyUsed?: string | null };
-    res.__proxyUsed = proxyUri;
-    return res;
+    return { response: response as unknown as Response, proxyUsed: proxyUri };
   } catch (err) {
-    // If proxy fails, fallback to direct connection
     console.warn(`Proxy failed (${proxyUri}), using direct connection:`, (err as Error).message);
-    const res = await fetch(url, fetchOptions) as Response & { __proxyUsed?: string | null };
-    res.__proxyUsed = null;
-    return res;
+    const response = await fetch(url, fetchOptions);
+    return { response, proxyUsed: null };
   }
 }
