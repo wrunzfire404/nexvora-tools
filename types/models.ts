@@ -18,17 +18,6 @@ export interface ModelConfig {
 
 export const IMAGE_MODELS: ModelConfig[] = [
   {
-    id: "mystic",
-    name: "Mystic",
-    description: "Ultra-realistic, high-resolution images (1K-4K)",
-    endpoint: "/v1/ai/mystic",
-    rateKey: "image-generation-mystic",
-    maxPerDay: 125,
-    pollInterval: 3000,
-    pollTimeout: 120000,
-    supports: { creativity: true },
-  },
-  {
     id: "flux-dev",
     name: "Flux Dev",
     description: "High quality, detailed images with fine control",
