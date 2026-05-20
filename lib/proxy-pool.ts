@@ -1,21 +1,18 @@
 /**
  * Outbound proxy pool for diversifying IP addresses
- * Loads from Redis (Upstash) if available, falls back to PROXY_LIST env variable
+ * Priority: Redis (Upstash) > PROXY_LIST env variable
  */
 
 let cachedProxies: string[] | null = null;
 let cacheTime = 0;
 let currentIndex = 0;
 
-const CACHE_TTL = 60000; // 1 minute cache
+const CACHE_TTL = 30000; // 30 seconds cache
 
-async function loadProxies(): Promise<string[]> {
-  // Return cache if fresh
-  if (cachedProxies && Date.now() - cacheTime < CACHE_TTL) {
-    return cachedProxies;
-  }
-
-  // Try Redis first
+/**
+ * Load proxies — async, used for refresh
+ */
+export async function refreshProxyCache(): Promise<string[]> {
   try {
     const { getProxies } = await import("./db");
     const dbProxies = await getProxies();
@@ -25,10 +22,10 @@ async function loadProxies(): Promise<string[]> {
       return dbProxies;
     }
   } catch {
-    // Redis not available, fall through
+    // Redis not available
   }
 
-  // Fallback to env variable
+  // Fallback to env
   const proxyList = process.env.PROXY_LIST || "";
   const envProxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
   cachedProxies = envProxies;
@@ -38,15 +35,20 @@ async function loadProxies(): Promise<string[]> {
 
 /**
  * Get next proxy URL (round-robin rotation)
- * Returns undefined if no proxies configured (direct connection)
+ * Returns undefined if no proxies configured
  */
 export function getNextProxy(): string | undefined {
-  // Synchronous — use cached list
+  // If cache expired, trigger async refresh (non-blocking)
+  if (!cachedProxies || Date.now() - cacheTime > CACHE_TTL) {
+    refreshProxyCache().catch(() => {});
+  }
+
+  // Use cached proxies or env fallback
   if (!cachedProxies || cachedProxies.length === 0) {
-    // Try env directly as sync fallback
     const proxyList = process.env.PROXY_LIST || "";
-    cachedProxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
-    if (cachedProxies.length === 0) return undefined;
+    const envProxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
+    if (envProxies.length === 0) return undefined;
+    cachedProxies = envProxies;
   }
 
   const proxy = cachedProxies[currentIndex % cachedProxies.length];
@@ -55,7 +57,7 @@ export function getNextProxy(): string | undefined {
 }
 
 /**
- * Force refresh proxy cache (call after add/remove)
+ * Force refresh proxy cache
  */
 export function invalidateProxyCache(): void {
   cachedProxies = null;
@@ -70,4 +72,4 @@ export function getProxyCount(): number {
 }
 
 // Pre-load on module init
-loadProxies().catch(() => {});
+refreshProxyCache().catch(() => {});

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAnnouncements, setAnnouncements, type Announcement } from "@/lib/db";
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "nexvora-admin-2024";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "reza1254";
 
 function checkAuth(request: NextRequest): boolean {
   const auth = request.headers.get("x-admin-key");

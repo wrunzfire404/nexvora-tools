@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProxies, setProxies, addProxy, removeProxy } from "@/lib/db";
 import { invalidateProxyCache } from "@/lib/proxy-pool";
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "nexvora-admin-2024";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "reza1254";
 
 function checkAuth(request: NextRequest): boolean {
   const auth = request.headers.get("x-admin-key");
@@ -45,18 +45,25 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 }
 
-// DELETE — remove proxy by index
+// DELETE — remove proxy by index or all
 export async function DELETE(request: NextRequest) {
   if (!checkAuth(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { index } = await request.json();
-  if (typeof index !== "number") {
+  const body = await request.json();
+
+  if (body.all) {
+    await setProxies([]);
+    invalidateProxyCache();
+    return NextResponse.json({ success: true, message: "All proxies deleted" });
+  }
+
+  if (typeof body.index !== "number") {
     return NextResponse.json({ error: "Index required" }, { status: 400 });
   }
 
-  await removeProxy(index);
+  await removeProxy(body.index);
   invalidateProxyCache();
   return NextResponse.json({ success: true });
 }

@@ -22,12 +22,17 @@ function getRedis(): Redis | null {
 export async function getProxies(): Promise<string[]> {
   const r = getRedis();
   if (!r) {
-    // Fallback to env variable if no Redis
+    // No Redis — fallback to env variable
     const envList = process.env.PROXY_LIST || "";
     return envList.split(",").map((p) => p.trim()).filter(Boolean);
   }
   const proxies = await r.get<string[]>("nexvora:proxies");
-  return proxies || [];
+  if (proxies && proxies.length > 0) {
+    return proxies;
+  }
+  // Redis is available but empty — still fallback to env
+  const envList = process.env.PROXY_LIST || "";
+  return envList.split(",").map((p) => p.trim()).filter(Boolean);
 }
 
 export async function setProxies(proxies: string[]): Promise<void> {

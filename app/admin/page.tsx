@@ -67,6 +67,14 @@ export default function AdminPage() {
     loadData();
   };
 
+  const deleteAllProxies = async () => {
+    await fetch("/api/admin/proxies", {
+      method: "DELETE", headers, body: JSON.stringify({ all: true }),
+    });
+    setMessage("All proxies deleted.");
+    loadData();
+  };
+
   const addAnnouncement = async () => {
     if (!newAnnouncement.trim()) return;
     await fetch("/api/admin/announcements", {
@@ -130,6 +138,12 @@ export default function AdminPage() {
         {/* Proxy Management */}
         <div className="p-5 rounded-xl border border-border bg-card space-y-4">
           <h2 className="text-sm font-bold flex items-center gap-2"><Shield className="w-4 h-4" /> Proxy Management ({proxies.length})</h2>
+
+          {proxies.length > 0 && (
+            <button onClick={deleteAllProxies} className="px-3 py-1.5 rounded-lg border border-destructive/30 text-destructive text-xs hover:bg-destructive/10">
+              Delete All Proxies
+            </button>
+          )}
 
           {/* Add single */}
           <div className="flex gap-2">

@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { proxyFetch } from "@/lib/proxy-fetch";
+import { getProxies } from "@/lib/db";
 
 export async function GET() {
-  const proxyList = process.env.PROXY_LIST || "";
-  const proxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
+  // Load proxies from Redis first, fallback to env
+  const proxies = await getProxies();
 
   if (proxies.length === 0) {
     return NextResponse.json({
       status: "no_proxy",
-      message: "No proxies configured. Using direct connection.",
+      message: "No proxies configured.",
       total: 0,
       alive: 0,
       results: [],
     });
   }
 
-  // Test each proxy by hitting httpbin
+  // Test each proxy
   const results = await Promise.all(
     proxies.map(async (proxy, index) => {
       const start = Date.now();
