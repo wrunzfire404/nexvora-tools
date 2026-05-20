@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { HttpsProxyAgent } from "https-proxy-agent";
 import { getNextProxy } from "@/lib/proxy-pool";
+import { proxyFetch } from "@/lib/proxy-fetch";
 
 const LEONARDO_BASE_URL = "https://cloud.leonardo.ai/api/rest/v2/generations";
 
@@ -12,25 +12,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Leonardo API key required" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = await request.text();
     const proxyUrl = getNextProxy();
 
-    const fetchOptions: RequestInit & { agent?: unknown } = {
+    const response = await proxyFetch(LEONARDO_BASE_URL, {
       method: "POST",
       headers: {
         "accept": "application/json",
         "authorization": `Bearer ${apiKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify(body),
-    };
+      body,
+      proxy: proxyUrl,
+    });
 
-    if (proxyUrl) {
-
-      (fetchOptions as Record<string, unknown>).agent = new HttpsProxyAgent(proxyUrl);
-    }
-
-    const response = await fetch(LEONARDO_BASE_URL, fetchOptions);
     const data = await response.json();
 
     if (!response.ok) {
@@ -63,21 +58,15 @@ export async function GET(request: NextRequest) {
 
     const proxyUrl = getNextProxy();
 
-    const fetchOptions: RequestInit & { agent?: unknown } = {
-      headers: {
-        "accept": "application/json",
-        "authorization": `Bearer ${apiKey}`,
-      },
-    };
-
-    if (proxyUrl) {
-
-      (fetchOptions as Record<string, unknown>).agent = new HttpsProxyAgent(proxyUrl);
-    }
-
-    const response = await fetch(
+    const response = await proxyFetch(
       `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
-      fetchOptions
+      {
+        headers: {
+          "accept": "application/json",
+          "authorization": `Bearer ${apiKey}`,
+        },
+        proxy: proxyUrl,
+      }
     );
 
     const data = await response.json();
@@ -95,4 +84,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to poll Leonardo API" }, { status: 500 });
   }
 }
-

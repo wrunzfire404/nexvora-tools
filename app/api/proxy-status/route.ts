@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { HttpsProxyAgent } from "https-proxy-agent";
+import { proxyFetch } from "@/lib/proxy-fetch";
 
 export async function GET() {
   const proxyList = process.env.PROXY_LIST || "";
@@ -10,6 +10,7 @@ export async function GET() {
       status: "no_proxy",
       message: "No proxies configured. Using direct connection.",
       total: 0,
+      alive: 0,
       results: [],
     });
   }
@@ -19,28 +20,24 @@ export async function GET() {
     proxies.map(async (proxy, index) => {
       const start = Date.now();
       try {
-        const agent = new HttpsProxyAgent(proxy);
-        const response = await fetch("https://httpbin.org/ip", {
-          // @ts-ignore
-          agent,
+        const response = await proxyFetch("https://httpbin.org/ip", {
+          proxy,
           signal: AbortSignal.timeout(10000),
         });
-        const data = await response.json();
+        const data = await response.json() as { origin?: string };
         return {
           index,
-          proxy: proxy.replace(/\/\/.*@/, "//***@"), // hide credentials
-          status: "alive",
-          ip: data.origin,
+          status: "alive" as const,
+          ip: data.origin || "unknown",
           latency: Date.now() - start,
         };
       } catch (err) {
         return {
           index,
-          proxy: proxy.replace(/\/\/.*@/, "//***@"),
-          status: "dead",
+          status: "dead" as const,
           ip: null,
           latency: Date.now() - start,
-          error: (err as Error).message,
+          error: (err as Error).message?.substring(0, 50),
         };
       }
     })

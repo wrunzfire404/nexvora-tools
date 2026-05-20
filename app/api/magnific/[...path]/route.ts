@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { HttpsProxyAgent } from "https-proxy-agent";
 import { getNextProxy } from "@/lib/proxy-pool";
+import { proxyFetch } from "@/lib/proxy-fetch";
 
 const MAGNIFIC_BASE_URL = "https://api.freepik.com";
 
@@ -44,33 +44,34 @@ async function handleProxy(
       headers["Content-Type"] = contentType;
     }
 
-    let body: string | ArrayBuffer | null = null;
+    let body: string | undefined;
 
     if (request.method === "POST") {
       if (contentType?.includes("multipart/form-data")) {
-        body = await request.arrayBuffer();
+        // For multipart — skip proxy (too complex), direct fetch
+        const rawBody = await request.arrayBuffer();
         delete headers["Content-Type"];
+        const response = await fetch(targetUrl, {
+          method: request.method,
+          headers,
+          body: rawBody,
+        });
+        const responseData = await response.json().catch(() => null);
+        return NextResponse.json(responseData ?? { error: "Empty response" }, { status: response.status });
       } else {
         body = await request.text();
       }
     }
 
-    // Get outbound proxy for IP diversification
+    // Get outbound proxy
     const proxyUrl = getNextProxy();
 
-    const fetchOptions: RequestInit & { agent?: unknown } = {
+    const response = await proxyFetch(targetUrl, {
       method: request.method,
       headers,
-      body: body as BodyInit | null,
-    };
-
-    // If proxy configured, use proxy agent
-    if (proxyUrl) {
-      const agent = new HttpsProxyAgent(proxyUrl);
-      (fetchOptions as Record<string, unknown>).agent = agent;
-    }
-
-    const response = await fetch(targetUrl, fetchOptions);
+      body,
+      proxy: proxyUrl,
+    });
 
     const responseText = await response.text();
     let responseData: unknown;
@@ -83,12 +84,9 @@ async function handleProxy(
     return NextResponse.json(responseData ?? { error: "Empty response" }, {
       status: response.status,
       headers: {
-        "x-ratelimit-remaining":
-          response.headers.get("x-ratelimit-remaining") ?? "",
-        "x-ratelimit-limit":
-          response.headers.get("x-ratelimit-limit") ?? "",
-        "x-ratelimit-reset":
-          response.headers.get("x-ratelimit-reset") ?? "",
+        "x-ratelimit-remaining": response.headers.get("x-ratelimit-remaining") ?? "",
+        "x-ratelimit-limit": response.headers.get("x-ratelimit-limit") ?? "",
+        "x-ratelimit-reset": response.headers.get("x-ratelimit-reset") ?? "",
         "retry-after": response.headers.get("retry-after") ?? "",
       },
     });
