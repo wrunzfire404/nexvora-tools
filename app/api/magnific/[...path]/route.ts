@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNextProxy } from "@/lib/proxy-pool";
+import { getNextProxyAsync } from "@/lib/proxy-pool";
 import { proxyFetch } from "@/lib/proxy-fetch";
 import { logRequest } from "@/lib/db";
 
@@ -64,8 +64,8 @@ async function handleProxy(
       }
     }
 
-    // Get outbound proxy
-    const proxyUrl = getNextProxy();
+    // Get outbound proxy (await to ensure Redis is loaded)
+    const proxyUrl = await getNextProxyAsync();
 
     const startTime = Date.now();
     const { response, proxyUsed } = await proxyFetch(targetUrl, {

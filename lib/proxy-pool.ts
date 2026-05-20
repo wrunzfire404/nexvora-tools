@@ -34,22 +34,16 @@ export async function refreshProxyCache(): Promise<string[]> {
 }
 
 /**
- * Get next proxy URL (round-robin rotation)
- * Returns undefined if no proxies configured
+ * Get next proxy URL (round-robin rotation) — ASYNC version
+ * Must be awaited to ensure Redis is loaded
  */
-export function getNextProxy(): string | undefined {
-  // If cache expired, trigger async refresh (non-blocking)
-  if (!cachedProxies || Date.now() - cacheTime > CACHE_TTL) {
-    refreshProxyCache().catch(() => {});
+export async function getNextProxyAsync(): Promise<string | undefined> {
+  // Force refresh if cache empty or expired
+  if (!cachedProxies || cachedProxies.length === 0 || Date.now() - cacheTime > CACHE_TTL) {
+    await refreshProxyCache();
   }
 
-  // Use cached proxies or env fallback
-  if (!cachedProxies || cachedProxies.length === 0) {
-    const proxyList = process.env.PROXY_LIST || "";
-    const envProxies = proxyList.split(",").map((p) => p.trim()).filter(Boolean);
-    if (envProxies.length === 0) return undefined;
-    cachedProxies = envProxies;
-  }
+  if (!cachedProxies || cachedProxies.length === 0) return undefined;
 
   const proxy = cachedProxies[currentIndex % cachedProxies.length];
   currentIndex++;
