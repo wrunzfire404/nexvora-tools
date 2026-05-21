@@ -154,6 +154,12 @@ export const NAV_ITEMS = [
     description: "Track active tasks",
   },
   {
+    title: "BytePlus Video",
+    href: "/byteplus",
+    icon: "Zap",
+    description: "Seedance 1.5 (Admin)",
+  },
+  {
     title: "History",
     href: "/history",
     icon: "History",
