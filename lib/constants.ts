@@ -116,17 +116,15 @@ export const NAV_ITEMS = [
   },
   {
     title: "Product Photo",
-    href: "/coming-soon",
+    href: "/product",
     icon: "ShoppingBag",
-    description: "Coming Soon",
-    comingSoon: true,
+    description: "AI product photography",
   },
   {
     title: "Product Video",
-    href: "/coming-soon",
+    href: "/product-video",
     icon: "Package",
-    description: "Coming Soon",
-    comingSoon: true,
+    description: "AI product video",
   },
   {
     title: "Batch Upscaler",
